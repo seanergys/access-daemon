@@ -1,8 +1,11 @@
-VPATH  = :$(EAR_SRC)/metrics/common
-VPATH +=  $(EAR_SRC)/common
-VPATH += :$(EAR_SRC)/common/utils
-VPATH += :$(EAR_SRC)/common/system
-VPATH += :$(EAR_SRC)/common/hardware
+SRC_DIRS  = $(EAR_SRC)/metrics/common
+SRC_DIRS += $(EAR_SRC)/common
+SRC_DIRS += $(EAR_SRC)/common/utils
+SRC_DIRS += $(EAR_SRC)/common/system
+SRC_DIRS += $(EAR_SRC)/common/hardware
+
+vpath %.c $(SRC_DIRS)
+vpath %.h $(SRC_DIRS)
 
 OBJS  = \
     msr.o \
@@ -19,14 +22,14 @@ OBJS  = \
     time.o \
     bithack.o
 
-all: $(OBJS) libcommon.so
+all: libcommon.so
 	rm -f *.o
 
 %.o: %.c %.h
-	$(CC) $(CC_FLAGS) -fPIC -c $<
+	$(CC) $(CC_FLAGS) -fPIC -c $< -o $@
 
-libcommon.so:
-	$(CC) $(CC_FLAGS) -shared -o $@ *.o
+libcommon.so: $(OBJS)
+	$(CC) $(CC_FLAGS) -shared -o $@ $(OBJS)
 
 clean:
 	rm -f *.o *.so

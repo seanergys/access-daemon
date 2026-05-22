@@ -90,12 +90,13 @@ plug_action_init(_topology_ext)
     return NULL;
 }
 
-plug_message_receive(_cpu_freq_met_get)
+static char *return_metrics(void *data)
 {
     met_t *met = (met_t *) data;
     uint32_t cpu_max = tp->cpu_count;
     uint32_t cpu_min = 0;
 
+    printf("DEVICE %d\n", met->device);
     // If just one device is specified
     if (met->device != -1) {
         cpu_max = met->device + 1;
@@ -115,7 +116,12 @@ plug_message_receive(_cpu_freq_met_get)
     return NULL;
 }
 
-plug_message_receive(all_met_get)
+plug_message_receive(_cpu_freq_met_get)
 {
-    return NULL;
+    return return_metrics(data);
+}
+
+plug_message_receive(_all_met_get)
+{
+    return return_metrics(data);
 }

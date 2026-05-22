@@ -1,12 +1,10 @@
-all: sub-folders accessd
-
-sub-folders:
-	@ $(MAKE) -C 'common' all || exit
-	@ $(MAKE) -C 'plugins' all || exit
+all: all.sub-folders accessd
 
 accessd: access_daemon.c
 	$(CC) $(CFLAGS) -I$(EAR_SRC) -o $@ $^ -L./common -lcommon -lpthread -ldl -lm
 
-clean:
-	@ $(MAKE) -C 'common' clean || exit
-	@ $(MAKE) -C 'plugins' clean || exit
+clean: clean.sub-folders
+
+%.sub-folders:
+	@ $(MAKE) -C 'common' $* || exit
+	@ $(MAKE) -C 'plugins' $* || exit

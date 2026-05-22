@@ -9,7 +9,7 @@
 static pthread_t thread;
 static int is_closing;
 
-declr_up_get_tag()
+plug_identity()
 {
     *tag       = "keyboard";
     *tags_deps = NULL;

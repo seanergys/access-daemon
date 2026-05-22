@@ -23,10 +23,14 @@ cpu_freq values:
 Enter query:
 ```
 
-- `cpu_freq` is the name of the metric we want to get. `all` **will** be accepted to simulate a request for a set of metrics that Telemetry Collector would publish. 
-- `met` is from metric, `act` is actuator.
-- The command `get` works for metrics, and `get/set` for actuators.
-- `all` is the device, in this case applied to all devices. But a single integer is valid too.
+Available querys:
+
+| Metric   | Domain  | Command | Device     | Description
+|----------|---------|---------|------------|------------
+| all      | met     | get     |            | Returns all metrics for all devices.
+| cpu_freq | met     | get     | all / #int | Returns the frequency of all or specific cpu.
+| cpu_pow  | met     | get     | all / #int | Returns the power consumption of all or specific cpu.
+
 
 ### Folder structure
 
