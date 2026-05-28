@@ -41,18 +41,44 @@ Available querys:
 
 # How to build new plugins
 
-The Access Daemon Prototype is using a simple [framework](./src/common/framework.h) from [EAR](https://gitlab.seanergys.fz-juelich.de/software/ear) that calls specific functions of shared objects. Above all there is the function called `plug_message_receive(suffix)`. This function which is in fact a macro, once is defined in the `.so` will be called by the plugin `metrics_central.so` when receiving a concrete query.
+The Access Daemon Prototype uses a simple plugin framework from [EAR](https://gitlab.seanergys.fz-juelich.de/software/ear). The framework dynamically loads shared objects (`.so`) and invokes specific functions exported by those plugins.
 
-In example, if you want to add a plugin that reads the effective CPU frequency, or `cpu_freq_met_get` in the queries terminology, and you want to do it for x86 CPUs through MSR, you can build a plugin called `cpu_freq_met_msr.so`. By defining the function `plug_message_receive(_cpu_freq_met_get)`, when the `metrics_central.so` plugin receives a query that asks for CPU frequencies, it will call `plug_message_send("cpu_freq_met_get")` which will also trigger the `plug_message_receive(_cpu_freq_met_get)` function that returns the metric.
+One of the most important entry points is `plug_message_receive(suffix)`. Although it looks like a function, it is actually a macro that defines a symbol expected by the framework. When this symbol is implemented inside a plugin, it can be invoked automatically by the `metrics_central.so` plugin whenever a matching query is received.
 
-I suggest you to inspect the code of [cpu_freq_met_dummy.c](./src/plugins/metrics/cpu_freq_met_dummy.c) and [cpu_freq_met_msr.c](./src/plugins/metrics/cpu_freq_met_msr.c) classes.
+For example, suppose you want to implement a plugin that reads the effective CPU frequency on x86 processors using MSRs. In query terminology, the metric request would be `cpu_freq met get`. You could implement this functionality in a plugin called `cpu_freq_met_msr.so`.
 
-You can build different plugins that defines the `plug_message_receive(_cpu_freq_met_get)` symbol, but for different architectures. You can edit the [./run.sh](./run.sh) to add or remove the plugins you want to test.
+Inside that plugin, you would define:
+```c
+plug_message_receive(_cpu_freq_met_get)
+```
 
-Finally, the `plug_action_init()`, or `plug_action_init(_topology_ext)` as can be seen regularly, are important and work in similar way. The `plug_action_init(suffix)` macro is just an initialization function called by the framework. If you add a suffix to this function, it will be called after the plugin with the same name as the suffix. 
+When `metrics_central.so` receives a query requesting CPU frequency metrics, it internally triggers:
+```c
+plug_message_send("cpu_freq_met_get")
+```
 
-In example, the [cpu_freq_met_msr.c](./src/plugins/metrics/cpu_freq_met_msr.c) plugin requires the topology to be initialized. Then it defines the `plug_action_init(_topology_ext)` function that will be called after the `topology_ext.so` plugin initialization, and will come with pointer to the  topology structure.
+The framework then resolves and calls the corresponding `plug_message_receive(_cpu_freq_met_get)` implementation exported by the loaded plugin, which returns the requested metric.
 
-As the final note, the `plug_identity()` macro returns the name of the plugin and its dependencies with other plugins.
+To better understand this mechanism, it is recommended to inspect the implementations in:
 
-If you want the full details about the `Plugin Manager` framework, which is its official name, you can visit [the header](https://gitlab.bsc.es/ear_team/ear_private/-/blob/development/src/common/system/plugin_manager.h) or the [EAR Wiki](https://gitlab.bsc.es/ear_team/ear_private/-/wikis/EDCMON).
+* [`cpu_freq_met_dummy.c`](./src/plugins/metrics/cpu_freq_met_dummy.c)
+* [`cpu_freq_met_msr.c`](./src/plugins/metrics/cpu_freq_met_msr.c)
+* [`framework.h`](./src/common/framework.h)
+
+The framework also allows multiple plugins to implement the same symbol for different architectures. For example, several plugins may define `plug_message_receive(_cpu_freq_met_get)`, each targeting a different CPU family or data source. You can select which plugins are loaded by editing [`run.sh`](./run.sh).
+
+Another important mechanism is `plug_action_init(_suffix)`, commonly seen as `plug_action_init(_topology_ext)`. This macro defines initialization callbacks executed by the framework during plugin startup.
+
+If a suffix is provided, the initialization function is executed *after* the plugin associated with that suffix has been initialized.
+
+For example, [cpu_freq_met_msr.c](./src/plugins/metrics/cpu_freq_met_msr.c) requires topology information before it can operate correctly. Therefore, it defines:
+
+```c
+plug_action_init(_topology_ext)
+```
+
+This guarantees that the function is executed only after `topology_ext.so` has completed its initialization. The framework also passes a pointer to the topology structure so the plugin can access the system topology information.
+
+Finally, the `plug_identity()` macro is used to declare the plugin name and its dependencies on other plugins.
+
+For a more complete description of the framework — officially called the **Plugin Manager**, you can visit [the header](https://gitlab.bsc.es/ear_team/ear_private/-/blob/development/src/common/system/plugin_manager.h) or the [EAR Wiki](https://gitlab.bsc.es/ear_team/ear_private/-/wikis/EDCMON).
