@@ -19,7 +19,7 @@ static void handle_signal(int sig, siginfo_t *si, void *unused)
 {
     (void) si;     // Suppress unused parameter warning
     (void) unused; // Suppress unused parameter warning
-    plugin_manager_close();
+    plugin_manager_exit();
 }
 
 int main(int argc, char *argv[])

@@ -22,7 +22,7 @@ static uint64_t    frequencies[128];
 
 plug_identity()
 {
-    *tag       = "cpu_freq_met_intel";
+    *tag       = "cpu_freq_met_msr";
     *tags_deps = "!topology_ext";
 }
 
@@ -96,7 +96,6 @@ static char *return_metrics(void *data)
     uint32_t cpu_max = tp->cpu_count;
     uint32_t cpu_min = 0;
 
-    printf("DEVICE %d\n", met->device);
     // If just one device is specified
     if (met->device != -1) {
         cpu_max = met->device + 1;

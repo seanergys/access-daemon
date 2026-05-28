@@ -18,7 +18,7 @@ plug_identity()
 static void string_exit()
 {
     is_closing = 1;
-    plugin_manager_close();
+    plugin_manager_exit();
 }
 
 static int is(char *s1, const char *s2)

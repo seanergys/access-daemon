@@ -1,6 +1,6 @@
 OBJS  = \
     cpu_freq_act_acpi.so \
-    cpu_freq_met_intel.so \
+    cpu_freq_met_msr.so \
     cpu_pow_met_msr.so
 
 all: $(OBJS)
