@@ -30,7 +30,7 @@ Available querys:
 | all      | met     | get           |            | Returns all metrics for all devices.
 | cpu_freq | met     | get           | all / #int | Returns the frequency of all or specific cpu.
 | cpu_pow  | met     | get           | all / #int | Returns the power consumption of all or specific cpu.
-| cpu_freq | met     | get/set/reset | all / #int | Returns the frequency of all or specific cpu.
+| cpu_freq | met     | get/set/reset | all / #int | Sets the frequency limit of all or specific cpu.
 
 
 ### Folder structure
@@ -41,7 +41,7 @@ Available querys:
 
 # How to build new plugins
 
-The Access Daemon Prototype is using a simple [framework](.src/common/framework.h) from [EAR](https://gitlab.seanergys.fz-juelich.de/software/ear) that calls specific functions of shared objects. Above all there is the function called `plug_message_receive(suffix)`. This function which is in fact a macro, once is defined in the `.so` will be called by the plugin `metrics_central.so` when receiving a concrete query.
+The Access Daemon Prototype is using a simple [framework](./src/common/framework.h) from [EAR](https://gitlab.seanergys.fz-juelich.de/software/ear) that calls specific functions of shared objects. Above all there is the function called `plug_message_receive(suffix)`. This function which is in fact a macro, once is defined in the `.so` will be called by the plugin `metrics_central.so` when receiving a concrete query.
 
 In example, if you want to add a plugin that reads the effective CPU frequency, or `cpu_freq_met_get` in the queries terminology, and you want to do it for x86 CPUs through MSR, you can build a plugin called `cpu_freq_met_msr.so`. By defining the function `plug_message_receive(_cpu_freq_met_get)`, when the `metrics_central.so` plugin receives a query that asks for CPU frequencies, it will call `plug_message_send("cpu_freq_met_get")` which will also trigger the `plug_message_receive(_cpu_freq_met_get)` function that returns the metric.
 
@@ -55,4 +55,4 @@ In example, the [cpu_freq_met_msr.c](./src/plugins/metrics/cpu_freq_met_msr.c) p
 
 As the final note, the `plug_identity()` macro returns the name of the plugin and its dependencies with other plugins.
 
-If you want the full details about the `Plugin Manager` framework, which is its official name, you can visit the [its header](https://gitlab.bsc.es/ear_team/ear_private/-/blob/development/src/common/system/plugin_manager.h) or the [EAR Wiki](https://gitlab.bsc.es/ear_team/ear_private/-/wikis/EDCMON).
+If you want the full details about the `Plugin Manager` framework, which is its official name, you can visit [the header](https://gitlab.bsc.es/ear_team/ear_private/-/blob/development/src/common/system/plugin_manager.h) or the [EAR Wiki](https://gitlab.bsc.es/ear_team/ear_private/-/wikis/EDCMON).
