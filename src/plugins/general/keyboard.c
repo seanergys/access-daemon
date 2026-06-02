@@ -28,14 +28,14 @@ static int is(char *s1, const char *s2)
 
 static void *string_read(void *x)
 {
-    static char string[128];
+    static char string[1024];
     int i;
 
     sleep(1);
     while (!is_closing) {
         printf("Enter query: ");
         fflush(stdout);
-        if ((i = scanf(" %127[^\n]", string)) > 0) {
+        if ((i = scanf(" %1023[^\n]", string)) > 0) {
             if (is(string, "exit")) {
                 string_exit();
             } else {

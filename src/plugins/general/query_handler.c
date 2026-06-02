@@ -21,41 +21,34 @@ plug_action_periodic(_query_handler)
     return NULL;
 }
 
-int wrdcpy(const char *string, int i, char *dst)
+char *wrdcpy(const char *string, char *dst)
 {
     const char *start = NULL;
     const char *end = NULL;
     size_t length = 0;
-    int j = 0;
 
-    if (string == NULL || dst == NULL || i < 0) {
+    if (string == NULL || dst == NULL) {
         return 0;
     }
     dst[0] = '\0';
-    while (*string != '\0') {
-        // Skipping initial spaces
-        while (*string != '\0' && isspace((unsigned char)*string)) {
-            string++;
-        }
-        if (*string == '\0') {
-            break;
-        }
-        // Found word
-        start = string;
-        // Avanzar hasta el final de la palabra
-        while (*string != '\0' && !isspace((unsigned char)*string)) {
-            string++;
-        }
-        end = string;
-        length = end - start;
-        if (j == i) {
-            memcpy(dst, start, length);
-            dst[length] = '\0';
-            return 1;
-        }
-        j++;
+    // Skipping initial spaces
+    while (*string != '\0' && isspace((unsigned char)*string)) {
+        string++;
     }
-    return 0;
+    if (*string == '\0') {
+        return NULL;
+    }
+    // Found word
+    start = string;
+    // Avanzar hasta el final de la palabra
+    while (*string != '\0' && !isspace((unsigned char)*string)) {
+        string++;
+    }
+    end = string;
+    length = end - start;
+    memcpy(dst, start, length);
+    dst[length] = '\0';
+    return (char *) string;
 }
 
 static void answer(void *bytes, size_t size)
@@ -73,11 +66,11 @@ plug_message_receive(_keyboard)
     // cpu_freq act set all/#
     // all      met get all   (special wildcard for Telemetry Collector)
     // aggregation not required, is done in other place
-    wrdcpy(string, 0, query.metric);
-    wrdcpy(string, 1, query.domain);
-    wrdcpy(string, 2, query.command);
-    wrdcpy(string, 3, query.device);
-    query.device_toint = atoi(query.device);
+    if (!(string = wrdcpy(string, query.metric))) return NULL;
+    if (!(string = wrdcpy(string, query.domain))) return NULL;
+    if (!(string = wrdcpy(string, query.command))) return NULL;
+    if (!(string = wrdcpy(string, query.device))) return NULL;
+    query.input_values = (char *) string;
     plug_message_send("query_metrics", &query);
     answer(query.answer, query.answer_size);
     return NULL;

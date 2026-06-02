@@ -8,7 +8,7 @@ typedef struct query_s {
     char     domain[8];
     char     device[8];
     char     command[8];
-    int32_t  device_toint;
+    char    *input_values;
     void    *answer; // Here will be the proto buffer
     size_t   answer_size;
 } query_t;
