@@ -45,6 +45,7 @@ plug_action_init(_topology_ext)
     if (!set_governor ) return_msg("[X] Governors can not be set: %s", state_msg);
     //if (!is_userspace_available()) return "[X] Userspace governor not available";
     current_list = calloc(tp->cpu_count, sizeof(uint64_t));
+    // TODO: save the default frequency in a file or something
     return NULL;
 }
 
@@ -88,22 +89,36 @@ plug_message_receive(_all_act_get)
 
 plug_message_receive(_cpu_freq_act_set)
 {
-    char freq[12]; // Enough for a frequency in Hz
-    met_t *met = (met_t *) data;
-    uint64_t *freqs = (uint64_t *) met->values;
-    uint cpu;
+    char freq[16]; // Enough for a frequency in Hz
+    act_t *act = (act_t *) data;
+    uint64_t *freqs = (uint64_t *) act->values;
+    uint32_t cpu;
 
+    if (act->device >= tp->cpu_count || act->device < -1) {
+        return "[X] Invalid device";
+    }
+    // Fixing values count
+    if (act->values_count > tp->cpu_count) {
+        act->values_count = tp->cpu_count;
+    }
     // If all devices and just one actuator value, it means all the actuators
     // should be set to the same value.
-    if (met->device == -1 && met->values_count == 1) {
+    if (act->device == -1 && act->values_count == 1) {
+        // TODO: validate if the frequency is in the range
         sprintf(freq, "%lu", freqs[0]);
         filemagic_word_mwrite(fds_sss, tp->cpu_count, freq, 1);
+        return NULL;
     }
-    if (met->values > tp->cpu_count) {
-        met->values_count = tp->cpu_count;
+    // Setting the devices iteration
+    if (act->device == -1) {
+        act->values_count = tp->cpu_count;
+        act->device = 0;
+    } else {
+        act->values_count = act->device + 1;
     }
     // If all devices, but multiple values, we write them in order
-    for (cpu = 0; cpu < met->values_count; ++cpu) {
+    for (cpu = act->device; cpu < act->values_count; ++cpu) {
+        // TODO: validate if the frequency is in the range
         sprintf(freq, "%lu", freqs[cpu]);
         filemagic_word_write(fds_sss[cpu], freq, strlen(freq), 0);
     }

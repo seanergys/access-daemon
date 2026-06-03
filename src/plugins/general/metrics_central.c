@@ -7,10 +7,16 @@
 #include <plugins/general/query_handler.h>
 #include <plugins/general/metrics_central.h>
 
-static met_t    *metrics; // cpu_freqX2 and cpu_powX2
-static void    **metrics_pointers;
-static uint64_t *actuators;
-static uint      actuators_count;
+typedef struct _act_s {
+    int32_t   device;
+    uint64_t *values;
+    uint32_t  values_count;
+    uint32_t  allocated_count; // Private use only
+} _act_t;
+
+static met_t   *metrics; // cpu_freqX2 and cpu_powX2
+static void   **metrics_pointers; // Used when asking for 'all' metrics
+static _act_t  *actuators; // Only one actuator per request is allowed
 
 plug_identity()
 {
@@ -23,9 +29,10 @@ plug_action_init(_metrics_central)
     int i;
     metrics          = calloc(4, sizeof(met_t));
     metrics_pointers = calloc(4, sizeof(void *));
-    actuators        = calloc(1024, sizeof(uint64_t));
-    actuators_count  = 1024;
+    actuators        = calloc(1, sizeof(_act_t));
     for (i = 0; i < 4; ++i) metrics_pointers[i] = &metrics[i];
+    for (i = 0; i < 1; ++i) actuators[i].allocated_count = 1024;
+    for (i = 0; i < 1; ++i) actuators[i].values = calloc(1024, sizeof(uint64_t));
     return NULL;
 }
 
@@ -39,12 +46,19 @@ static int is(char *s1, const char *s2)
     return strcasecmp(s1, s2) == 0;
 }
 
-void *parse_actuators(char *string, int *count)
+static void expand_actuators(_act_t *act)
+{
+    act->allocated_count *= 2;
+    act->values = realloc(act->values, act->allocated_count * sizeof(uint64_t));
+}
+
+static void parse_actuators(char *string, _act_t *act)
 {
     char *start = NULL;
     char *end = NULL;
 
-    *count = 0;
+    act->values_count = 0;
+    memset(act->values, 0, sizeof(uint64_t) * (act->allocated_count));
     // Parsing all the words
     while (*string != '\0') {
         // Cleaning spaces
@@ -53,7 +67,7 @@ void *parse_actuators(char *string, int *count)
         }
         // Found a word but seems to be the last
         if (*string == '\0') {
-            goto returning;
+            return;
         }
         // Found word
         start = string;
@@ -62,20 +76,17 @@ void *parse_actuators(char *string, int *count)
             string++;
         }
         if (*string == '\0') {
-            // TODO: increase the actuators array size in case of overflow
-            actuators[(*count)++] = atoi(start);
-            goto returning;
+            act->values[act->values_count++] = (uint64_t) atoll(start);
+            return;
         }
         end = string, *end = '\0';
-        actuators[(*count)++] = (uint64_t) atoll(start);
+        act->values[act->values_count++] = (uint64_t) atoll(start);
+        if (act->values_count == act->allocated_count) {
+            expand_actuators(act);
+        }
         *end = ' ';
         ++string;
     }
-returning:
-    if (*count == 0) {
-        return NULL;
-    }
-    return (void *) actuators;
 }
 
 static char *form_message(query_t *query)
@@ -100,31 +111,59 @@ void print_metrics(met_t *metric)
     }
 }
 
-plug_message_receive(_query_metrics)
+static char *command_set(query_t *query, char *message)
 {
-    query_t *query = (query_t *) data;
-    char *message = form_message(query);
+    parse_actuators(query->arguments, &actuators[0]);
 
-    // TODO: check if the query is valid
-    memset(metrics, 0, sizeof(met_t)*4);
-    // If actuators
-    if (query->domain[0] == 'a') {
-        metrics[0].values = parse_actuators(query->input_values, &metrics[0].values_count);
+    if (actuators[0].values_count == 0) {
+        return "No actuator values specified";
     }
-    // all is a special wildcard, but only works on metrics
-    if (query->domain[0] == 'm' && strncmp(query->metric, "all", 3) == 0) {
+    if (strncasecmp(query->device, "all", 3) != 0) {
+        actuators[0].device = atoi(query->device);
+    } else {
+        actuators[0].device = -1;
+    }
+    plug_message_send(message, (void *) &actuators[0]);
+    return NULL;
+}
+
+static void serialize_answer(met_t *metrics, answer_t *ans)
+{
+    // TODO
+}
+
+static char *command_get(query_t *query, char *message)
+{
+    memset(metrics, 0, sizeof(met_t)*4);
+
+    // An `all` for metrics is also `all` for devices
+    if (strncasecmp(query->metric, "all", 3) == 0) {
         metrics[0].device = -1;
         plug_message_send_each(message, metrics_pointers);
     } else {
-        if (strncmp(query->device, "all", 3) != 0) {
+        if (strncasecmp(query->device, "all", 3) != 0) {
             metrics[0].device = atoi(query->device);
         } else {
             metrics[0].device = -1;
         }
         plug_message_send(message, (void *) &metrics[0]);
     }
+    serialize_answer(metrics, &query->answer);
     print_metrics(metrics);
-    query->answer = &metrics[0].values;
-    query->answer_size = metrics[0].values_size;
     return NULL;
+}
+
+plug_message_receive(_query_metrics)
+{
+    query_t *query = (query_t *) data;
+    // Getting the function name of the plugin that will be called
+    char *message = form_message(query);
+
+    // TODO: check if the query is valid
+    if (query->command[0] == 's') {
+        return command_set(query, message);
+    } else if (query->command[0] == 'g') {
+        return command_get(query, message);
+    }
+    return NULL; // Or return invalid
 }

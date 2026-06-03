@@ -51,27 +51,22 @@ char *wrdcpy(const char *string, char *dst)
     return (char *) string;
 }
 
-static void answer(void *bytes, size_t size)
+static void answer(answer_t *ans)
 {
-    // Do something
+    // TODO
 }
 
 plug_message_receive(_keyboard)
 {
     const char *string = (char *) data;
     query_t query = {0};
-    // <metric> <domain> <command> <device> <param>
-    // cpu_freq met get all/# (it performs a diff internally)
-    // cpu_freq act get all/#
-    // cpu_freq act set all/#
-    // all      met get all   (special wildcard for Telemetry Collector)
-    // aggregation not required, is done in other place
+
     if (!(string = wrdcpy(string, query.metric))) return NULL;
     if (!(string = wrdcpy(string, query.domain))) return NULL;
     if (!(string = wrdcpy(string, query.command))) return NULL;
     if (!(string = wrdcpy(string, query.device))) return NULL;
-    query.input_values = (char *) string;
+    query.arguments = (char *) string;
     plug_message_send("query_metrics", &query);
-    answer(query.answer, query.answer_size);
+    answer(&query.answer);
     return NULL;
 }
