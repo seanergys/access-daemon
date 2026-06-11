@@ -43,7 +43,7 @@ static char *return_metrics(void *data)
     return NULL;
 }
 
-plug_message_receive(_cpu_freq_met_get)
+plug_message_receive(_met_cpu_freq_get)
 {
     // This function will be called when `metrics_central.so` receives a query
     // from the Data Plane (or faked), that asks for "cpu_freq" metrics.

@@ -10,7 +10,8 @@
 typedef struct met_s {
     char   *metric_name;
     int32_t device; // -1 for all devices
-    void   *values; // Used also for actuators
+    char   *sub_device;
+    void   *values;
     int8_t  values_type;
     char   *values_units;
     int32_t values_count;
@@ -19,6 +20,7 @@ typedef struct met_s {
 
 typedef struct act_s {
     int32_t   device;
+    char     *sub_device;
     uint64_t *const values;
     uint32_t  values_count;
 } act_t;

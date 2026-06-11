@@ -17,21 +17,21 @@ This will allow us to discuss the potential problems of the code, logic and stru
 2) Then type a string that simulates a query received from the Data Plane:
 
 ```c
-Enter query: cpu_freq met get all
+Enter query: met cpu_freq get all
 cpu_freq values:
 1206000 1224000 1188000 1242000 1260000 1206000 1206000 1152000
-Enter query:
+Enter query: act cpu_pow set all socket 40
 ```
 
 Available querys:
 
-| Metric   | Domain  | Command       | Device     | Description
-|----------|---------|---------------|------------|------------
-| all      | met     | get           |            | Returns all metrics for all devices.
-| cpu_freq | met     | get           | all / #int | Returns the frequency of all or specific cpu.
-| cpu_pow  | met     | get           | all / #int | Returns the power consumption of all or specific cpu.
-| cpu_freq | met     | get/set/reset | all / #int | Sets the frequency limit of all or specific cpu.
-
+| Domain | Metric   | Command       | Device     | Sub-device                         | Description
+|--------|----------|---------------|------------|------------------------------------|------------
+| met    | all      | get           |            |                                    | Returns all metrics of all devices.
+| met    | cpu_freq | get           | all / #int |                                    | Returns the frequency (KHz) of all or specific cpu.
+| met    | cpu_pow  | get           | all / #int |                                    | Returns the power consumption (W) of all or specific cpu.
+| act    | cpu_freq | get/set/reset | all / #int |                                    | Sets the frequency limit (KHz) of all or specific cpu.
+| act    | cpu_pow  | get/set/reset | all / #int | socket/core/uncore/dram (optional) | Sets the power limit (W) of all or specific sub-devices (socket is default)
 
 ### Folder structure
 
@@ -61,8 +61,8 @@ The framework then resolves and calls the corresponding `plug_message_receive(_c
 
 To better understand this mechanism, it is recommended to inspect the implementations in:
 
-* [`cpu_freq_met_dummy.c`](./src/plugins/metrics/cpu_freq_met_dummy.c)
-* [`cpu_freq_met_msr.c`](./src/plugins/metrics/cpu_freq_met_msr.c)
+* [`cpu_freq_met_dummy.c`](src/plugins/metrics/cpu_freq_dummy.c)
+* [`cpu_freq_met_msr.c`](src/plugins/metrics/cpu_freq_msr.c)
 * [`framework.h`](./src/common/framework.h)
 
 The framework also allows multiple plugins to implement the same symbol for different architectures. For example, several plugins may define `plug_message_receive(_cpu_freq_met_get)`, each targeting a different CPU family or data source. You can select which plugins are loaded by editing [`run.sh`](./run.sh).
@@ -71,7 +71,7 @@ Another important mechanism is `plug_action_init(_suffix)`, commonly seen as `pl
 
 If a suffix is provided, the initialization function is executed *after* the plugin associated with that suffix has been initialized.
 
-For example, [cpu_freq_met_msr.c](./src/plugins/metrics/cpu_freq_met_msr.c) requires topology information before it can operate correctly. Therefore, it defines:
+For example, [cpu_freq_met_msr.c](src/plugins/metrics/cpu_freq_msr.c) requires topology information before it can operate correctly. Therefore, it defines:
 
 ```c
 plug_action_init(_topology_ext)

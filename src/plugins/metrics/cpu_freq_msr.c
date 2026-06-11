@@ -22,7 +22,7 @@ static uint64_t    frequencies[128];
 
 plug_identity()
 {
-    *tag       = "cpu_freq_met_msr";
+    *tag       = "met_cpu_freq_msr";
     *tags_deps = "!topology_ext";
 }
 
@@ -115,7 +115,7 @@ static char *return_metrics(void *data)
     return NULL;
 }
 
-plug_message_receive(_cpu_freq_met_get)
+plug_message_receive(_met_cpu_freq_get)
 {
     return return_metrics(data);
 }

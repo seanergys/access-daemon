@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <common/framework.h>
 #include <metrics/common/file.h>
 #include <plugins/general/metrics_central.h>
@@ -15,7 +16,7 @@ static uint64_t   *current_list;
 
 plug_identity()
 {
-    *tag       = "cpu_freq_act_acpi";
+    *tag       = "act_cpu_freq_acpi";
     *tags_deps = "!topology_ext";
 }
 
@@ -41,8 +42,8 @@ plug_action_init(_topology_ext)
     // Testing if frequency/governor set files are accessible
     int set_frequency = filemagic_can_mwrite(PATH_SSS, tp->cpu_count, &fds_sss);
     int set_governor  = filemagic_can_mwrite(PATH_SGV, tp->cpu_count, &fds_sgv);
-    if (!set_frequency) return_msg("[X] Frequencies can not be set: %s", state_msg);
-    if (!set_governor ) return_msg("[X] Governors can not be set: %s", state_msg);
+    if (!set_frequency) return rsprintf("[X] frequencies can not be set: %s", state_msg);
+    if (!set_governor ) return rsprintf("[X] governors can not be set: %s", state_msg);
     //if (!is_userspace_available()) return "[X] Userspace governor not available";
     current_list = calloc(tp->cpu_count, sizeof(uint64_t));
     // TODO: save the default frequency in a file or something
@@ -77,7 +78,7 @@ static char *return_actuators_values(void *data)
     return NULL;
 }
 
-plug_message_receive(_cpu_freq_act_get)
+plug_message_receive(_act_cpu_freq_get)
 {
     return return_actuators_values(data);
 }
@@ -87,7 +88,7 @@ plug_message_receive(_all_act_get)
     return return_actuators_values(data);
 }
 
-plug_message_receive(_cpu_freq_act_set)
+plug_message_receive(_act_cpu_freq_set)
 {
     char freq[16]; // Enough for a frequency in Hz
     act_t *act = (act_t *) data;
@@ -101,15 +102,15 @@ plug_message_receive(_cpu_freq_act_set)
     if (act->values_count > tp->cpu_count) {
         act->values_count = tp->cpu_count;
     }
-    // If all devices and just one actuator value, it means all the actuators
-    // should be set to the same value.
+    // If received 'all devices' but just one actuator value, it means all the
+    // actuators should be set to the same value.
     if (act->device == -1 && act->values_count == 1) {
         // TODO: validate if the frequency is in the range
         sprintf(freq, "%lu", freqs[0]);
         filemagic_word_mwrite(fds_sss, tp->cpu_count, freq, 1);
         return NULL;
     }
-    // Setting the devices iteration
+    // Preparing the per-device iteration
     if (act->device == -1) {
         act->values_count = tp->cpu_count;
         act->device = 0;
@@ -122,5 +123,11 @@ plug_message_receive(_cpu_freq_act_set)
         sprintf(freq, "%lu", freqs[cpu]);
         filemagic_word_write(fds_sss[cpu], freq, strlen(freq), 0);
     }
+    return NULL;
+}
+
+plug_message_receive(_act_cpu_freq_reset)
+{
+    // TODO:
     return NULL;
 }

@@ -10,11 +10,12 @@ typedef struct answer_s {
 } answer_t;
 
 typedef struct query_s {
+    char     domain[8]; //met/act
     char     metric[32];
-    char     domain[8];
-    char     device[8];
     char     command[8];
-    char    *arguments;
+    char     device[8];
+    char     sub_device[8];
+    char    *arguments; // values, but it can hold other things like sub-device
     answer_t answer;
 } query_t;
 

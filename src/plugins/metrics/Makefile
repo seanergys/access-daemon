@@ -1,18 +1,11 @@
 OBJS  = \
-    cpu_freq_act_acpi.so \
-    cpu_freq_met_msr.so \
-    cpu_pow_met_msr.so
+    cpu_freq_msr.so \
+    cpu_pow_msr.so
 
 all: $(OBJS)
 
 %.so: %.c
-	$(CC) $(CC_FLAGS) -fPIC -shared -o $@ $^
-
-cpu_freq_met_intel.so: cpu_freq_met_intel.c
-	$(CC) $(CC_FLAGS) -fPIC -shared -o $@ $^
-
-cpu_freq_act_acpi.so: cpu_freq_act_acpi.c
-	$(CC) $(CC_FLAGS) -fPIC -shared -o $@ $^
+	$(CC) $(CC_FLAGS) -fPIC -shared -o met_$@ $^
 
 clean:
 	rm -f *.o *.so

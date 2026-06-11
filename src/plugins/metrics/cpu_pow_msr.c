@@ -40,7 +40,7 @@ static timestamp_t sensors2_time;
 
 plug_identity()
 {
-    *tag       = "cpu_pow_met_intel";
+    *tag       = "met_cpu_pow_intel";
     *tags_deps = "!topology_ext";
 }
 
@@ -145,7 +145,7 @@ static char *return_metrics(void *data)
     return NULL;
 }
 
-plug_message_receive(_cpu_pow_met_get)
+plug_message_receive(_met_cpu_pow_get)
 {
     return return_metrics(data);
 }

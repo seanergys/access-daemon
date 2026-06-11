@@ -7,8 +7,11 @@
 #include <plugins/general/query_handler.h>
 #include <plugins/general/metrics_central.h>
 
+#define MAX_METRICS 4
+
 typedef struct _act_s {
     int32_t   device;
+    char     *sub_device;
     uint64_t *values;
     uint32_t  values_count;
     uint32_t  allocated_count; // Private use only
@@ -27,8 +30,8 @@ plug_identity()
 plug_action_init(_metrics_central)
 {
     int i;
-    metrics          = calloc(4, sizeof(met_t));
-    metrics_pointers = calloc(4, sizeof(void *));
+    metrics          = calloc(MAX_METRICS, sizeof(met_t));
+    metrics_pointers = calloc(MAX_METRICS, sizeof(void *));
     actuators        = calloc(1, sizeof(_act_t));
     for (i = 0; i < 4; ++i) metrics_pointers[i] = &metrics[i];
     for (i = 0; i < 1; ++i) actuators[i].allocated_count = 1024;
@@ -92,7 +95,7 @@ static void parse_actuators(char *string, _act_t *act)
 static char *form_message(query_t *query)
 {
     static char msg[128] = {0};
-    sprintf(msg, "%s_%s_%s", query->metric, query->domain, query->command);
+    sprintf(msg, "%s_%s_%s", query->domain, query->metric, query->command);
     return msg;
 }
 
@@ -103,6 +106,7 @@ void print_metrics(met_t *metric)
     while (metric->values != NULL) {
         printf("%s values (in %s):\n", metric->metric_name, metric->values_units);
         for (i = 0; i < metric->values_count; ++i) {
+            if (metric->values_type == ID_UINT32) printf("%u ", ((uint32_t *) metric->values)[i]);
             if (metric->values_type == ID_UINT64) printf("%lu ", ((uint64_t *) metric->values)[i]);
             if (metric->values_type == ID_DOUBLE) printf("%0.2lf ", ((double *) metric->values)[i]);
         }
@@ -123,6 +127,7 @@ static char *command_set(query_t *query, char *message)
     } else {
         actuators[0].device = -1;
     }
+    actuators[0].sub_device = query->sub_device;
     plug_message_send(message, (void *) &actuators[0]);
     return NULL;
 }
@@ -134,17 +139,21 @@ static void serialize_answer(met_t *metrics, answer_t *ans)
 
 static char *command_get(query_t *query, char *message)
 {
-    memset(metrics, 0, sizeof(met_t)*4);
+    int dev = 0;
 
-    // An `all` for metrics is also `all` for devices
+    memset(metrics, 0, sizeof(met_t)*MAX_METRICS);
+    // 'all' by default
+    for (dev = 0; dev < MAX_METRICS; ++dev) {
+        metrics[dev].device = -1;
+        metrics[dev].sub_device = query->sub_device;
+    }
+    // An 'all' for metrics is also 'all' for devices
     if (strncasecmp(query->metric, "all", 3) == 0) {
-        metrics[0].device = -1;
         plug_message_send_each(message, metrics_pointers);
     } else {
+        // If not 'all'
         if (strncasecmp(query->device, "all", 3) != 0) {
             metrics[0].device = atoi(query->device);
-        } else {
-            metrics[0].device = -1;
         }
         plug_message_send(message, (void *) &metrics[0]);
     }
@@ -158,7 +167,6 @@ plug_message_receive(_query_metrics)
     query_t *query = (query_t *) data;
     // Getting the function name of the plugin that will be called
     char *message = form_message(query);
-
     // TODO: check if the query is valid
     if (query->command[0] == 's') {
         return command_set(query, message);
