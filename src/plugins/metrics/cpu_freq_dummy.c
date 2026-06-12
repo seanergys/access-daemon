@@ -50,7 +50,7 @@ plug_message_receive(_met_cpu_freq_get)
     return return_metrics(data);
 }
 
-plug_message_receive(_all_met_get)
+plug_message_receive(_met_all_get)
 {
     // This function will be called when `metrics_central.so` receives a query
     // from the Data Plane (or faked), that asks for all the metrics and this

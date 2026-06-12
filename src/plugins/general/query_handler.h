@@ -7,6 +7,7 @@ typedef struct answer_s {
     void    *bytes; // Here will be the proto buffer
     size_t   size;
     uint8_t  invalid;
+    char    *error_msg;
 } answer_t;
 
 typedef struct query_s {

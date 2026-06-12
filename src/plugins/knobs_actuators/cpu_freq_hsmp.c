@@ -1,58 +1,32 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <common/framework.h>
-#include <metrics/common/file.h>
+#include <common/hardware/bithack.h>
+#include <metrics/common/hsmp.c>
 #include <plugins/general/metrics_central.h>
 
-#define PATH_SSS  "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_setspeed"
-#define PATH_SGV  "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_governor"
-#define PATH_SAG0 "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors"
-
 static topology_t *tp;
-static int        *fds_sgv;
-static int        *fds_sss;
 static uint64_t   *current_list;
 
 plug_identity()
 {
-    *tag       = "act_cpu_freq_acpi";
-    *tags_deps = "!topology_ext";
-}
-
-static int is_userspace_available()
-{
-    int found_userspace = 0;
-    int fd_sag0         = -1;
-    char buffer[32];
-
-    if (!filemagic_can_read(PATH_SAG0, &fd_sag0))
-        return -1;
-    // Read if there is userspace governor, if not this is not a valid driver.
-    while (!found_userspace && filemagic_word_read(fd_sag0, buffer, 0)) {
-        found_userspace = (strncasecmp(buffer, "userspace", 9) == 0);
-    }
-    close(fd_sag0);
-    return found_userspace;
+    *tag       = "act_cpu_freq_hsmp";
+    *tags_deps = "!topology_ext,!act_cpu_freq_driver_governor";
 }
 
 plug_action_init(_topology_ext)
 {
-    tp = (topology_t *) data;
-    // Testing if frequency/governor set files are accessible
-    int set_frequency = filemagic_can_mwrite(PATH_SSS, tp->cpu_count, &fds_sss);
-    int set_governor  = filemagic_can_mwrite(PATH_SGV, tp->cpu_count, &fds_sgv);
-    if (!set_frequency) return rsprintf("[X] frequencies can not be set: %s", state_msg);
-    if (!set_governor ) return rsprintf("[X] governors can not be set: %s", state_msg);
-    //if (!is_userspace_available()) return "[X] Userspace governor not available";
-    current_list = calloc(tp->cpu_count, sizeof(uint64_t));
-    // TODO: save the default frequency in a file or something
+    tp = (topology_t *) data; // And we save the topology for our own use
+    if (state_fail(hsmp_open(tp, HSMP_WR))) {
+        return rsprintf("[X] HSMP failed: %s", state_msg);
+    }
     return NULL;
 }
 
 static char *return_actuators_values(void *data)
 {
-    char value[64] = {0};
+    uint args[2] = {0, -1};
+    uint reps[2] = {0, -1};
     met_t *met  = (met_t *) data;
     int cpu_max = tp->cpu_count;
     int cpu_min = 0;
@@ -64,8 +38,12 @@ static char *return_actuators_values(void *data)
     }
     for (cpu = cpu_min; cpu < cpu_max; ++cpu) {
         current_list[cpu] = 0LLU;
-        if (filemagic_word_read(fds_sss[cpu], value, 1)) {
-            current_list[cpu] = (uint64_t) atoll(value);
+        // Preparing HSMP arguments and response
+        args[0] = tp->cpus[cpu].apicid;
+        reps[0] = 0;
+        // Calling HSMP, response is freq (MHz)
+        if (state_ok(hsmp_send(tp->cpus[cpu].socket_id, HSMP_GET_BOOST_LIMIT, args, reps))) {
+            current_list[cpu] = (uint64_t) reps[0];
         }
     }
     // Returning metric
@@ -83,14 +61,15 @@ plug_message_receive(_act_cpu_freq_get)
     return return_actuators_values(data);
 }
 
-plug_message_receive(_all_act_get)
+plug_message_receive(_act_all_get)
 {
     return return_actuators_values(data);
 }
 
 plug_message_receive(_act_cpu_freq_set)
 {
-    char freq[16]; // Enough for a frequency in Hz
+    uint args[2] = { 0, -1};
+    uint reps[1] = { -1 };
     act_t *act = (act_t *) data;
     uint64_t *freqs = (uint64_t *) act->values;
     uint32_t cpu;
@@ -105,9 +84,14 @@ plug_message_receive(_act_cpu_freq_set)
     // If received 'all devices' but just one actuator value, it means all the
     // actuators should be set to the same value.
     if (act->device == -1 && act->values_count == 1) {
-        // TODO: validate if the frequency is in the range
-        sprintf(freq, "%lu", freqs[0]);
-        filemagic_word_mwrite(fds_sss, tp->cpu_count, freq, 1);
+        for (cpu = 0; cpu < tp->cpu_count; ++cpu) {
+            // TODO: validate if the frequency is in the range
+            args[0]  = setbits32(0, tp->cpus[cpu].apicid, 31, 16);
+            args[0] |= ((((uint) freqs[0]) / 1000) & 0xFFFF);
+            // TODO: discriminate turbo values from (sub)-nominals
+            hsmp_send(tp->cpus[cpu].socket_id, HSMP_SET_BOOST_LIMIT, args, reps);
+            // TODO: error control
+        }
         return NULL;
     }
     // Preparing the per-device iteration
@@ -120,8 +104,11 @@ plug_message_receive(_act_cpu_freq_set)
     // If all devices, but multiple values, we write them in order
     for (cpu = act->device; cpu < act->values_count; ++cpu) {
         // TODO: validate if the frequency is in the range
-        sprintf(freq, "%lu", freqs[cpu]);
-        filemagic_word_write(fds_sss[cpu], freq, strlen(freq), 0);
+        args[0]  = setbits32(0, tp->cpus[cpu].apicid, 31, 16);
+        args[0] |= ((((uint) freqs[cpu]) / 1000) & 0xFFFF);
+        // TODO: discriminate turbo values from (sub)-nominals
+        hsmp_send(tp->cpus[cpu].socket_id, HSMP_SET_BOOST_LIMIT, args, reps);
+        // TODO: error control
     }
     return NULL;
 }

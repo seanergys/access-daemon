@@ -16,13 +16,17 @@ typedef struct met_s {
     char   *values_units;
     int32_t values_count;
     size_t  values_size; // total size
+    uint8_t invalid;
+    const char *error_msg;
 } met_t;
 
 typedef struct act_s {
-    int32_t   device;
-    char     *sub_device;
-    uint64_t *const values;
-    uint32_t  values_count;
+    int32_t     device;
+    char       *sub_device;
+    uint64_t   *const values;
+    uint32_t    values_count;
+    uint8_t     invalid;
+    const char *error_msg;
 } act_t;
 
 #endif // PLUG_METRICS_CENTRAL_H

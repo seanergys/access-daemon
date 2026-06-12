@@ -36,7 +36,7 @@ plug_action_init(_topology_ext)
 static int parse_subdevice(char *sub_device, int *devs_count)
 {
     // Default number of devices
-    *devs_count = tp->socket_count;
+    if (devs_count != NULL) *devs_count = tp->socket_count;
     if (strncasecmp(sub_device, "socket", 6) == 0) return CPUPOW_SOCKET;
     if (strncasecmp(sub_device, "mem"   , 3) == 0) return CPUPOW_DRAM;
     if (strncasecmp(sub_device, "dram"  , 4) == 0) return CPUPOW_DRAM;
@@ -45,7 +45,7 @@ static int parse_subdevice(char *sub_device, int *devs_count)
     if (strncasecmp(sub_device, "cpu"   , 3) == 0 ||
         strncasecmp(sub_device, "pp0"   , 3) == 0 ||
         strncasecmp(sub_device, "core"  , 4) == 0) {
-        *devs_count = tp->core_count;
+        if (devs_count != NULL) *devs_count = tp->core_count;
         return CPUPOW_CORE;
     }
     return CPUPOW_SOCKET; // Socket by default
@@ -64,7 +64,7 @@ static char *return_actuators_values(void *data)
         cpu_max = met->device + 1;
         cpu_min = met->device;
     }
-    ops.powercap_get(CPUPOW_CORE, (uint *) temporal_values);
+    ops.powercap_get(sub_device, (uint *) temporal_values);
     for (cpu = cpu_min; cpu < cpu_max; ++cpu) {
         current_knobs[cpu] = (uint64_t) temporal_values[cpu];
     }
@@ -83,7 +83,7 @@ plug_message_receive(_act_cpu_pow_get)
     return return_actuators_values(data);
 }
 
-plug_message_receive(_all_act_get)
+plug_message_receive(_act_all_get)
 {
     return return_actuators_values(data);
 }
@@ -113,7 +113,7 @@ plug_message_receive(_act_cpu_pow_set)
         for (cpu = 0; cpu < cpu_max; ++cpu) {
             temporal_values[cpu] = (uint32_t) received_values[0];
         }
-        ops.powercap_set(CPUPOW_CORE, temporal_values);
+        ops.powercap_set(sub_device, temporal_values);
         return NULL;
     }
     // Preparing the per-device iteration
@@ -126,12 +126,13 @@ plug_message_receive(_act_cpu_pow_set)
     for (cpu = act->device; cpu < act->values_count; ++cpu) {
         temporal_values[cpu] = (uint32_t) received_values[cpu];
     }
-    ops.powercap_set(CPUPOW_CORE, (uint *) temporal_values);
+    ops.powercap_set(sub_device, (uint *) temporal_values);
     return NULL;
 }
 
 plug_message_receive(_act_cpu_pow_reset)
 {
-    ops.powercap_reset(CPUPOW_CORE);
+    act_t *act = (act_t *) data;
+    ops.powercap_reset(parse_subdevice(act->sub_device, NULL));
     return NULL;
 }

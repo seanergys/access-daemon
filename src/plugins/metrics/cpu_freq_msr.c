@@ -120,7 +120,7 @@ plug_message_receive(_met_cpu_freq_get)
     return return_metrics(data);
 }
 
-plug_message_receive(_all_met_get)
+plug_message_receive(_met_all_get)
 {
     return return_metrics(data);
 }

@@ -1,0 +1,133 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <common/framework.h>
+#include <metrics/common/file.h>
+#include <plugins/general/metrics_central.h>
+
+#define PATH_SSS  "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_setspeed"
+#define PATH_SGV  "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_governor"
+#define PATH_SAG0 "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors"
+
+static topology_t *tp;
+static int        *fds_sgv;
+static int        *fds_sss;
+static uint64_t   *current_list;
+
+plug_identity()
+{
+    *tag       = "act_cpu_freq_driver_acpi";
+    *tags_deps = "!topology_ext,!act_cpu_freq_driver_governor";
+}
+
+static int is_userspace_available()
+{
+    int found_userspace = 0;
+    int fd_sag0         = -1;
+    char buffer[32];
+
+    if (!filemagic_can_read(PATH_SAG0, &fd_sag0))
+        return -1;
+    // Read if there is userspace governor, if not this is not a valid driver.
+    while (!found_userspace && filemagic_word_read(fd_sag0, buffer, 0)) {
+        found_userspace = (strncasecmp(buffer, "userspace", 9) == 0);
+    }
+    close(fd_sag0);
+    return found_userspace;
+}
+
+plug_action_init(_topology_ext)
+{
+    tp = (topology_t *) data;
+    // Testing if frequency/governor set files are accessible
+    int set_frequency = filemagic_can_mwrite(PATH_SSS, tp->cpu_count, &fds_sss);
+    int set_governor  = filemagic_can_mwrite(PATH_SGV, tp->cpu_count, &fds_sgv);
+    if (!set_frequency) return rsprintf("[X] frequencies can not be set: %s", state_msg);
+    if (!set_governor ) return rsprintf("[X] governors can not be set: %s", state_msg);
+    if (!is_userspace_available()) return "[X] Userspace governor not available";
+    current_list = calloc(tp->cpu_count, sizeof(uint64_t));
+    // TODO: save the default frequency and governor in a file or something
+    return NULL;
+}
+
+static char *return_actuators_values(void *data)
+{
+    char value[64] = {0};
+    met_t *met  = (met_t *) data;
+    int cpu_max = tp->cpu_count;
+    int cpu_min = 0;
+    int cpu     = 0;
+
+    if (met->device != -1) {
+        cpu_max = met->device + 1;
+        cpu_min = met->device;
+    }
+    for (cpu = cpu_min; cpu < cpu_max; ++cpu) {
+        current_list[cpu] = 0LLU;
+        if (filemagic_word_read(fds_sss[cpu], value, 1)) {
+            current_list[cpu] = (uint64_t) atoll(value);
+        }
+    }
+    // Returning metric
+    met->metric_name  = "cpu_freq";
+    met->values       = &current_list[cpu_min];
+    met->values_count = cpu_max - cpu_min;
+    met->values_size  = sizeof(uint64_t) * met->values_count;
+    met->values_type  = ID_UINT64;
+    met->values_units = "KHz";
+    return NULL;
+}
+
+plug_message_receive(_act_cpu_freq_get)
+{
+    return return_actuators_values(data);
+}
+
+plug_message_receive(_act_all_get)
+{
+    return return_actuators_values(data);
+}
+
+plug_message_receive(_act_cpu_freq_set)
+{
+    char freq[16]; // Enough for a frequency in Hz
+    act_t *act = (act_t *) data;
+    uint64_t *freqs = (uint64_t *) act->values;
+    uint32_t cpu;
+
+    if (act->device >= tp->cpu_count || act->device < -1) {
+        return "[X] Invalid device";
+    }
+    // Fixing values count
+    if (act->values_count > tp->cpu_count) {
+        act->values_count = tp->cpu_count;
+    }
+    // If received 'all devices' but just one actuator value, it means all the
+    // actuators should be set to the same value.
+    if (act->device == -1 && act->values_count == 1) {
+        // TODO: validate if the frequency is in the range
+        sprintf(freq, "%lu", freqs[0]);
+        filemagic_word_mwrite(fds_sss, tp->cpu_count, freq, 1);
+        return NULL;
+    }
+    // Preparing the per-device iteration
+    if (act->device == -1) {
+        act->values_count = tp->cpu_count;
+        act->device = 0;
+    } else {
+        act->values_count = act->device + 1;
+    }
+    // If all devices, but multiple values, we write them in order
+    for (cpu = act->device; cpu < act->values_count; ++cpu) {
+        // TODO: validate if the frequency is in the range
+        sprintf(freq, "%lu", freqs[cpu]);
+        filemagic_word_write(fds_sss[cpu], freq, strlen(freq), 1);
+    }
+    return NULL;
+}
+
+plug_message_receive(_act_cpu_freq_reset)
+{
+    // TODO: recover the default governor and frequency from file
+    return NULL;
+}
