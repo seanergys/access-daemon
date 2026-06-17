@@ -12,7 +12,7 @@ static uint32_t         *temporal_values; // EAR uses integers
 
 plug_identity()
 {
-    *tag       = "act_cpu_pow_msr";
+    *tag       = "act.cpu_pow.msr";
     *tags_deps = "!topology_ext";
 }
 

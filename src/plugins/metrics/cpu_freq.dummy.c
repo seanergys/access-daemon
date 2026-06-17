@@ -8,7 +8,7 @@ static uint64_t    base_frequency;
 
 plug_identity()
 {
-    *tag       = "cpu_freq_met_dummy"; // This is my name. It's required because
+    *tag       = "met.cpu_freq.dummy"; // This is my name. It's required because
                                        // someone could change the name of the
                                        // file.
     *tags_deps = "!topology_ext"; // The required plugins in comma sepparated

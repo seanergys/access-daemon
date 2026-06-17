@@ -5,7 +5,7 @@
 #include <common/utils/keeper.h>
 #include <metrics/common/file.h>
 #include <plugins/general/metrics_central.h>
-#include <plugins/knobs_actuators/cpu_freq_driver_governor.h>
+#include <plugins/knobs_actuators/cpu_freq.driver_governor.h>
 
 #define PATH_SSS  "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_setspeed"
 
@@ -17,8 +17,8 @@ static char        default_frequency[64];
 
 plug_identity()
 {
-    *tag       = "act_cpu_freq_driver_acpi";
-    *tags_deps = "!topology_ext+!act_cpu_freq_driver_governor";
+    *tag       = "act.cpu_freq.driver_acpi";
+    *tags_deps = "!topology_ext,!act.cpu_freq.driver_governor";
 }
 
 plug_action_init(_topology_ext)

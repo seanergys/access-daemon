@@ -10,7 +10,7 @@ static uint64_t   *current_list;
 
 plug_identity()
 {
-    *tag       = "act_cpu_freq_hsmp";
+    *tag       = "act.cpu_freq.hsmp";
     *tags_deps = "!topology_ext,!act_cpu_freq_driver_governor";
 }
 

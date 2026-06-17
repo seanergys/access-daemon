@@ -40,7 +40,7 @@ static timestamp_t sensors2_time;
 
 plug_identity()
 {
-    *tag       = "met_cpu_pow_intel";
+    *tag       = "met.cpu_pow.intel";
     *tags_deps = "!topology_ext";
 }
 

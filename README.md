@@ -45,7 +45,7 @@ The Access Daemon Prototype uses a simple plugin framework from [EAR](https://gi
 
 One of the most important entry points is `plug_message_receive(suffix)`. Although it looks like a function, it is actually a macro that defines a symbol expected by the framework. When this symbol is implemented inside a plugin, it can be invoked automatically by the `metrics_central.so` plugin whenever a matching query is received.
 
-For example, suppose you want to implement a plugin that reads the effective CPU frequency on x86 processors using MSRs. In query terminology, the metric request would be `cpu_freq met get`. You could implement this functionality in a plugin called `cpu_freq_met_msr.so`.
+For example, suppose you want to implement a plugin that reads the effective CPU frequency on x86 processors using MSRs. In query terminology, the metric request would be `cpu_freq met get`. You could implement this functionality in a plugin called `met.cpu_freq.msr.so`.
 
 Inside that plugin, you would define:
 ```c
@@ -54,24 +54,24 @@ plug_message_receive(_cpu_freq_met_get)
 
 When `metrics_central.so` receives a query requesting CPU frequency metrics, it internally triggers:
 ```c
-plug_message_send("cpu_freq_met_get")
+plug_message_send("met_cpu_freq_get")
 ```
 
-The framework then resolves and calls the corresponding `plug_message_receive(_cpu_freq_met_get)` implementation exported by the loaded plugin, which returns the requested metric.
+The framework then resolves and calls the corresponding `plug_message_receive(_met_cpu_freq_get)` implementation exported by the loaded plugin, which returns the requested metric.
 
 To better understand this mechanism, it is recommended to inspect the implementations in:
 
-* [`cpu_freq_met_dummy.c`](src/plugins/metrics/cpu_freq_dummy.c)
-* [`cpu_freq_met_msr.c`](src/plugins/metrics/cpu_freq_msr.c)
+* [`cpu_freq.dummy.c`](src/plugins/metrics/cpu_freq.dummy.c)
+* [`cpu_freq.msr.c`](src/plugins/metrics/cpu_freq.msr.c)
 * [`framework.h`](./src/common/framework.h)
 
-The framework also allows multiple plugins to implement the same symbol for different architectures. For example, several plugins may define `plug_message_receive(_cpu_freq_met_get)`, each targeting a different CPU family or data source. You can select which plugins are loaded by editing [`run.sh`](./run.sh).
+The framework also allows multiple plugins to implement the same symbol for different architectures. For example, several plugins may define `plug_message_receive(_met_cpu_freq_get)`, each targeting a different CPU family or data source. You can select which plugins are loaded by editing [`run.sh`](./run.sh).
 
 Another important mechanism is `plug_action_init(_suffix)`, commonly seen as `plug_action_init(_topology_ext)`. This macro defines initialization callbacks executed by the framework during plugin startup.
 
 If a suffix is provided, the initialization function is executed *after* the plugin associated with that suffix has been initialized.
 
-For example, [cpu_freq_met_msr.c](src/plugins/metrics/cpu_freq_msr.c) requires topology information before it can operate correctly. Therefore, it defines:
+For example, [cpu_freq.msr.c](src/plugins/metrics/cpu_freq.msr.c) requires topology information before it can operate correctly. Therefore, it defines:
 
 ```c
 plug_action_init(_topology_ext)

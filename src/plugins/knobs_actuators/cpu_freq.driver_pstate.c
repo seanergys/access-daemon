@@ -5,7 +5,7 @@
 #include <common/utils/keeper.h>
 #include <metrics/common/file.h>
 #include <plugins/general/metrics_central.h>
-#include <plugins/knobs_actuators/cpu_freq_driver_governor.h>
+#include <plugins/knobs_actuators/cpu_freq.driver_governor.h>
 
 static topology_t *tp;
 static uint64_t   *current_list;
@@ -13,8 +13,8 @@ static char        default_frequency[64];
 
 plug_identity()
 {
-    *tag       = "act_cpu_freq_driver_pstate";
-    *tags_deps = "!topology_ext+!act_cpu_freq_driver_governor";
+    *tag       = "act.cpu_freq.driver_pstate";
+    *tags_deps = "!topology_ext,!act.cpu_freq.driver_governor";
 }
 
 #define PATH_SMF  "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_max_freq" // line break
