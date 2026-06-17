@@ -17,6 +17,7 @@ OBJS  = \
     monitor.o \
     overhead.o \
     plugin_manager.o \
+    plugin_manager_internal.o \
     poll.o \
     string.o \
     strtable.o \
@@ -28,6 +29,9 @@ all: libcommon.so
 
 %.o: %.c %.h
 	$(CC) $(CC_FLAGS) -fPIC -c $< -o $@
+
+plugin_manager_internal.o: plugin_manager_internal.c plugin_manager_internal.h
+	$(CC) $(CC_FLAGS) -fPIC -DSEPARATOR="','" -c $< -o $@
 
 libcommon.so: $(OBJS)
 	$(CC) $(CC_FLAGS) -shared -o $@ $(OBJS)

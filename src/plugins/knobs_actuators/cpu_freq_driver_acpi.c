@@ -2,38 +2,23 @@
 #include <stdlib.h>
 #include <string.h>
 #include <common/framework.h>
+#include <common/utils/keeper.h>
 #include <metrics/common/file.h>
 #include <plugins/general/metrics_central.h>
+#include <plugins/knobs_actuators/cpu_freq_driver_governor.h>
 
 #define PATH_SSS  "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_setspeed"
-#define PATH_SGV  "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_governor"
-#define PATH_SAG0 "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors"
 
 static topology_t *tp;
 static int        *fds_sgv;
 static int        *fds_sss;
 static uint64_t   *current_list;
+static char        default_frequency[64];
 
 plug_identity()
 {
     *tag       = "act_cpu_freq_driver_acpi";
-    *tags_deps = "!topology_ext,!act_cpu_freq_driver_governor";
-}
-
-static int is_userspace_available()
-{
-    int found_userspace = 0;
-    int fd_sag0         = -1;
-    char buffer[32];
-
-    if (!filemagic_can_read(PATH_SAG0, &fd_sag0))
-        return -1;
-    // Read if there is userspace governor, if not this is not a valid driver.
-    while (!found_userspace && filemagic_word_read(fd_sag0, buffer, 0)) {
-        found_userspace = (strncasecmp(buffer, "userspace", 9) == 0);
-    }
-    close(fd_sag0);
-    return found_userspace;
+    *tags_deps = "!topology_ext+!act_cpu_freq_driver_governor";
 }
 
 plug_action_init(_topology_ext)
@@ -41,12 +26,15 @@ plug_action_init(_topology_ext)
     tp = (topology_t *) data;
     // Testing if frequency/governor set files are accessible
     int set_frequency = filemagic_can_mwrite(PATH_SSS, tp->cpu_count, &fds_sss);
-    int set_governor  = filemagic_can_mwrite(PATH_SGV, tp->cpu_count, &fds_sgv);
     if (!set_frequency) return rsprintf("[X] frequencies can not be set: %s", state_msg);
-    if (!set_governor ) return rsprintf("[X] governors can not be set: %s", state_msg);
-    if (!is_userspace_available()) return "[X] Userspace governor not available";
+    if (!cpu_freq_is_userspace_available()) return "[X] Userspace governor not available";
     current_list = calloc(tp->cpu_count, sizeof(uint64_t));
-    // TODO: save the default frequency and governor in a file or something
+    // Saving default frequency
+    if (!keeper_load_text("CpuFreqDefault", default_frequency)) {
+        if (filemagic_word_read(fds_sss[0], default_frequency, 1)) {
+            keeper_save_text("CpuFreqDefault", default_frequency);
+        }
+    }
     return NULL;
 }
 
@@ -106,6 +94,7 @@ plug_message_receive(_act_cpu_freq_set)
     // actuators should be set to the same value.
     if (act->device == -1 && act->values_count == 1) {
         // TODO: validate if the frequency is in the range
+        cpu_freq_governor_set(-1, Governor.userspace);
         sprintf(freq, "%lu", freqs[0]);
         filemagic_word_mwrite(fds_sss, tp->cpu_count, freq, 1);
         return NULL;
@@ -121,6 +110,7 @@ plug_message_receive(_act_cpu_freq_set)
     for (cpu = act->device; cpu < act->values_count; ++cpu) {
         // TODO: validate if the frequency is in the range
         sprintf(freq, "%lu", freqs[cpu]);
+        cpu_freq_governor_set(cpu, Governor.userspace);
         filemagic_word_write(fds_sss[cpu], freq, strlen(freq), 1);
     }
     return NULL;
@@ -128,6 +118,9 @@ plug_message_receive(_act_cpu_freq_set)
 
 plug_message_receive(_act_cpu_freq_reset)
 {
-    // TODO: recover the default governor and frequency from file
+    if (strlen(default_frequency) > 0 && strstr(default_frequency, "unsup") != NULL) {
+        filemagic_word_mwrite(fds_sss, tp->cpu_count, default_frequency, 1);
+    }
+    cpu_freq_governor_reset(-1);
     return NULL;
 }

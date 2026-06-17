@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <common/types.h>
+#include <common/utils/keeper.h>
 #include <plugins/general/query_handler.h>
 #include <plugins/general/metrics_central.h>
 
@@ -24,7 +25,7 @@ static _act_t  *actuators; // Only one actuator per request is allowed
 plug_identity()
 {
     *tag       = "metrics_central";
-    *tags_deps = "!topology_ext";
+    *tags_deps = NULL;
 }
 
 plug_action_init(_metrics_central)
@@ -36,6 +37,8 @@ plug_action_init(_metrics_central)
     for (i = 0; i < 4; ++i) metrics_pointers[i] = &metrics[i];
     for (i = 0; i < 1; ++i) actuators[i].allocated_count = 1024;
     for (i = 0; i < 1; ++i) actuators[i].values = calloc(1024, sizeof(uint64_t));
+    // Keeper is a text file manager used to save default system values.
+    keeper_open("/tmp/seanergys-defaults.conf");
     return NULL;
 }
 
@@ -117,8 +120,9 @@ void print_metrics(met_t *metric)
 
 static char *command_set(query_t *query, char *message)
 {
-    parse_actuators(query->arguments, &actuators[0]);
-
+    if (query->arguments != NULL) {
+        parse_actuators(query->arguments, &actuators[0]);
+    }
     if (actuators[0].values_count == 0) {
         return "No actuator values specified";
     }
@@ -128,6 +132,12 @@ static char *command_set(query_t *query, char *message)
         actuators[0].device = -1;
     }
     actuators[0].sub_device = query->sub_device;
+    plug_message_send(message, (void *) &actuators[0]);
+    return NULL;
+}
+
+static char *command_reset(query_t *query, char *message)
+{
     plug_message_send(message, (void *) &actuators[0]);
     return NULL;
 }
@@ -147,7 +157,7 @@ static char *command_get(query_t *query, char *message)
         metrics[dev].device = -1;
         metrics[dev].sub_device = query->sub_device;
     }
-    // An 'all' for metrics is also 'all' for devices
+        // An 'all' for metrics is also 'all' for devices
     if (strncasecmp(query->metric, "all", 3) == 0) {
         plug_message_send_each(message, metrics_pointers);
     } else {
@@ -170,6 +180,8 @@ plug_message_receive(_query_metrics)
     // TODO: check if the query is valid
     if (query->command[0] == 's') {
         return command_set(query, message);
+    } else if (query->command[0] == 'r') {
+        return command_reset(query, message);
     } else if (query->command[0] == 'g') {
         return command_get(query, message);
     }

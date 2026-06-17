@@ -1,7 +1,24 @@
 #ifndef PLUG_QUERY_HANDLER_H
 #define PLUG_QUERY_HANDLER_H
 
+#include <uuid/uuid.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <common/framework.h>
+
+typedef struct ip_addr_s {
+    int family; // AF_INET o AF_INET6
+    union {
+        struct in_addr  v4;
+        struct in6_addr v6;
+    } addr;
+} ip_addr_t;
+
+typedef struct comp_s {
+    uuid_t    uuid;
+    ip_addr_t ip;
+    int       local;
+} comp_t;
 
 typedef struct answer_s {
     void    *bytes; // Here will be the proto buffer
@@ -11,6 +28,7 @@ typedef struct answer_s {
 } answer_t;
 
 typedef struct query_s {
+    comp_t  *component; // Request sender
     char     domain[8]; //met/act
     char     metric[32];
     char     command[8];

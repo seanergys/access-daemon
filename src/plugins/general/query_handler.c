@@ -53,6 +53,9 @@ char *wrdcpy(const char *string, char *dst)
 
 static int isnum(const char *string)
 {
+    if (!string) {
+        return 0;
+    }
     while (isspace((unsigned char) *string)) {
         string++;
     }
@@ -81,7 +84,7 @@ plug_message_receive(_keyboard)
     if (!(string = wrdcpy(string, query.domain))) return NULL;
     if (!(string = wrdcpy(string, query.metric))) return NULL;
     if (!(string = wrdcpy(string, query.command))) return NULL;
-    if (!(string = wrdcpy(string, query.device))) return NULL;
+          string = wrdcpy(string, query.device);
     if (!isnum(string)) string = wrdcpy(string, query.sub_device);
     query.arguments = (char *) string;
     plug_message_send("query_metrics", &query);

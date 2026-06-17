@@ -2,20 +2,22 @@
 #include <stdlib.h>
 #include <string.h>
 #include <common/framework.h>
+#include <common/utils/keeper.h>
 #include <metrics/common/file.h>
 #include <plugins/general/metrics_central.h>
+#include <plugins/knobs_actuators/cpu_freq_driver_governor.h>
 
 static topology_t *tp;
 static uint64_t   *current_list;
+static char        default_frequency[64];
 
 plug_identity()
 {
     *tag       = "act_cpu_freq_driver_pstate";
-    *tags_deps = "!topology_ext,!act_cpu_freq_driver_governor";
+    *tags_deps = "!topology_ext+!act_cpu_freq_driver_governor";
 }
 
 #define PATH_SMF  "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_max_freq" // line break
-#define PATH_SGV  "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_governor" // line break
 
 static int *fds_smf; // FD scaling max freq
 static int *fds_sgv;
@@ -25,12 +27,15 @@ plug_action_init(_topology_ext)
     tp = (topology_t *) data;
     // Testing if frequency/governor set files are writable
     int set_frequency = filemagic_can_mwrite(PATH_SMF, tp->cpu_count, &fds_smf);
-    int set_governor  = filemagic_can_mwrite(PATH_SGV, tp->cpu_count, &fds_sgv);
     if (!set_frequency) return rsprintf("[X] frequencies can not be set: %s", state_msg);
-    if (!set_governor ) return rsprintf("[X] governors can not be set: %s", state_msg);
     // intel_pstate driver does not have governor "userspace".
     current_list = calloc(tp->cpu_count, sizeof(uint64_t));
-    // TODO: save the default frequency and governor in a file or something
+    // Saving default frequency
+    if (!keeper_load_text("CpuFreqDefault", default_frequency)) {
+        if (filemagic_word_read(fds_smf[0], default_frequency, 1)) {
+            keeper_save_text("CpuFreqDefault", default_frequency);
+        }
+    }
     return NULL;
 }
 
@@ -112,6 +117,10 @@ plug_message_receive(_act_cpu_freq_set)
 
 plug_message_receive(_act_cpu_freq_reset)
 {
-    // TODO: recover the default governor and frequency from file
+    printf("LOL\n");
+    if (strlen(default_frequency) > 0) {
+        filemagic_word_mwrite(fds_smf, tp->cpu_count, default_frequency, 1);
+    }
+    cpu_freq_governor_reset(-1);
     return NULL;
 }
