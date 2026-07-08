@@ -16,7 +16,7 @@ plug_identity()
     *tags_deps = "!topology_ext";
 }
 
-plug_action_init(_topology_ext)
+plug_init(_topology_ext)
 {
     tp = (topology_t *) data; // And we save the topology for our own use
     // This is a big class, so I'm invoking the EAR code directly.

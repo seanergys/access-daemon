@@ -83,7 +83,7 @@ static void copy(uint32_t cpu_min, uint32_t cpu_max)
     memcpy(&sensors1[cpu_min], &sensors2[cpu_min], sizeof(uint64_t) * 4 * (cpu_max - cpu_min));
 }
 
-plug_action_init(_topology_ext)
+plug_init(_topology_ext)
 {
     uint64_t res;
     int cpu;

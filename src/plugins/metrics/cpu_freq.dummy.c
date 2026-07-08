@@ -16,18 +16,18 @@ plug_identity()
                                   // because this plugin can't work.
 }
 
-plug_action_init(_cpu_freq_met_dummy)
+plug_init(_cpu_freq_met_dummy)
 {
     // This function is called sometime in the initialization process.
-    return "Hello, I'm plug_action_init(_cpu_freq_met_dummy)";
+    return "Hello, I'm plug_init(_cpu_freq_met_dummy)";
 }
 
-plug_action_init(_topology_ext)
+plug_init(_topology_ext)
 {
     // This function is called after the initialization of topology_ext plugin
     // and comes with an initialized topology in form of void pointer (void *data)
     tp = (topology_t *) data; // And we save the topology for our own use
-    return "Hello, I'm plug_action_init(_topology_ext)";
+    return "Hello, I'm plug_init(_topology_ext)";
 }
 
 static char *return_metrics(void *data)

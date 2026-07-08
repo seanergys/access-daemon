@@ -11,7 +11,7 @@ plug_identity()
     *tags_deps = NULL;
 }
 
-plug_action_init(_topology_ext)
+plug_init(_topology_ext)
 {
     cpufreq_base_t base_freq = {0};
     topology_init((topology_t *) &topo);

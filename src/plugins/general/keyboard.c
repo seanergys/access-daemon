@@ -48,7 +48,7 @@ static void *string_read(void *x)
     return NULL;
 }
 
-plug_action_init(_keyboard)
+plug_init(_keyboard)
 {
     pthread_create(&thread, NULL, string_read, NULL);
     return NULL;

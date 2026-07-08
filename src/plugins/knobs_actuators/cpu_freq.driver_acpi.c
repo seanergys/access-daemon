@@ -21,7 +21,7 @@ plug_identity()
     *tags_deps = "!topology_ext,!act.cpu_freq.driver_governor";
 }
 
-plug_action_init(_topology_ext)
+plug_init(_topology_ext)
 {
     tp = (topology_t *) data;
     // Testing if frequency/governor set files are accessible

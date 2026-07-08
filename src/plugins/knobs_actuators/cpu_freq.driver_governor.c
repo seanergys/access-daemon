@@ -21,7 +21,7 @@ plug_identity()
     *tags_deps = "!topology_ext";
 }
 
-plug_action_init(_topology_ext)
+plug_init(_topology_ext)
 {
     tp = (topology_t *) data;
     int set_governor = filemagic_can_mwrite(PATH_SGV, tp->cpu_count, &fds_sgv);

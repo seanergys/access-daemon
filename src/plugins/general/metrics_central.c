@@ -28,7 +28,7 @@ plug_identity()
     *tags_deps = NULL;
 }
 
-plug_action_init(_metrics_central)
+plug_init(_metrics_central)
 {
     int i;
     metrics          = calloc(MAX_METRICS, sizeof(met_t));
@@ -42,7 +42,7 @@ plug_action_init(_metrics_central)
     return NULL;
 }
 
-plug_action_periodic(_metrics_central)
+plug_periodic(_metrics_central)
 {
     return NULL;
 }

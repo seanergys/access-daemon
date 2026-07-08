@@ -10,13 +10,13 @@ plug_identity()
     *tags_deps = NULL;
 }
 
-plug_action_init(_query_handler)
+plug_init(_query_handler)
 {
     // Configuration (plugins,periodicity)
     return NULL;
 }
 
-plug_action_periodic(_query_handler)
+plug_periodic(_query_handler)
 {
     return NULL;
 }

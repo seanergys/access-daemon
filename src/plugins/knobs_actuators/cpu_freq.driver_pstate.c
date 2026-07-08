@@ -22,7 +22,7 @@ plug_identity()
 static int *fds_smf; // FD scaling max freq
 static int *fds_sgv;
 
-plug_action_init(_topology_ext)
+plug_init(_topology_ext)
 {
     tp = (topology_t *) data;
     // Testing if frequency/governor set files are writable
