@@ -1,7 +1,7 @@
 all: all.sub-folders accessd
 
 accessd: access_daemon.c
-	$(CC) $(CFLAGS) -I$(EAR_SRC) -o $@ $^ -L./common -lcommon -lpthread -ldl -lm
+	$(CC) $(CFLAGS) -I$(EAR_SRCDIR) -o $@ $^ -L./common -lcommon -lpthread -ldl -lm
 
 clean: clean.sub-folders
 

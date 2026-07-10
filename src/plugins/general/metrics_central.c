@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <common/types.h>
 #include <common/utils/keeper.h>
 #include <plugins/general/query_handler.h>
@@ -21,6 +22,12 @@ typedef struct _act_s {
 static met_t   *metrics; // cpu_freqX2 and cpu_powX2
 static void   **metrics_pointers; // Used when asking for 'all' metrics
 static _act_t  *actuators; // Only one actuator per request is allowed
+
+typedef struct strbuf_s {
+    char *bytes;
+    size_t length;
+    size_t capacity;
+} strbuf_t;
 
 plug_identity()
 {
@@ -102,6 +109,93 @@ static char *form_message(query_t *query)
     return msg;
 }
 
+static char *xstrdup(const char *text)
+{
+    size_t size;
+    char *copy;
+
+    if (text == NULL) {
+        text = "";
+    }
+    size = strlen(text) + 1;
+    copy = malloc(size);
+    if (copy != NULL) {
+        memcpy(copy, text, size);
+    }
+    return copy;
+}
+
+static void answer_clear(answer_t *ans)
+{
+    free(ans->bytes);
+    free(ans->error_msg);
+    memset(ans, 0, sizeof(*ans));
+}
+
+static void answer_error(answer_t *ans, const char *message)
+{
+    answer_clear(ans);
+    ans->invalid = 1;
+    ans->error_msg = xstrdup(message);
+}
+
+static void answer_text(answer_t *ans, const char *text)
+{
+    answer_clear(ans);
+    ans->bytes = xstrdup(text);
+    ans->size = ans->bytes != NULL ? strlen(ans->bytes) : 0;
+}
+
+static int strbuf_reserve(strbuf_t *buf, size_t needed)
+{
+    char *new_bytes;
+    size_t new_capacity;
+
+    if (needed <= buf->capacity) {
+        return 1;
+    }
+    new_capacity = buf->capacity == 0 ? 256 : buf->capacity;
+    while (new_capacity < needed) {
+        new_capacity *= 2;
+    }
+    new_bytes = realloc(buf->bytes, new_capacity);
+    if (new_bytes == NULL) {
+        return 0;
+    }
+    buf->bytes = new_bytes;
+    buf->capacity = new_capacity;
+    return 1;
+}
+
+static int strbuf_appendf(strbuf_t *buf, const char *fmt, ...)
+{
+    va_list ap;
+    va_list ap_copy;
+    int written;
+
+    while (1) {
+        if (!strbuf_reserve(buf, buf->length + 128)) {
+            return 0;
+        }
+        va_start(ap, fmt);
+        va_copy(ap_copy, ap);
+        written = vsnprintf(buf->bytes + buf->length, buf->capacity - buf->length, fmt, ap_copy);
+        va_end(ap_copy);
+        va_end(ap);
+
+        if (written < 0) {
+            return 0;
+        }
+        if (buf->length + (size_t) written < buf->capacity) {
+            buf->length += (size_t) written;
+            return 1;
+        }
+        if (!strbuf_reserve(buf, buf->length + (size_t) written + 1)) {
+            return 0;
+        }
+    }
+}
+
 void print_metrics(met_t *metric)
 {
     int i;
@@ -120,11 +214,15 @@ void print_metrics(met_t *metric)
 
 static char *command_set(query_t *query, char *message)
 {
+    char *error_msg = NULL;
+
     if (query->arguments != NULL) {
         parse_actuators(query->arguments, &actuators[0]);
     }
     if (actuators[0].values_count == 0) {
-        return "No actuator values specified";
+        error_msg = "No actuator values specified";
+        answer_error(&query->answer, error_msg);
+        return error_msg;
     }
     if (strncasecmp(query->device, "all", 3) != 0) {
         actuators[0].device = atoi(query->device);
@@ -133,18 +231,59 @@ static char *command_set(query_t *query, char *message)
     }
     actuators[0].sub_device = query->sub_device;
     plug_message_send(message, (void *) &actuators[0]);
+    answer_text(&query->answer, "OK");
     return NULL;
 }
 
 static char *command_reset(query_t *query, char *message)
 {
     plug_message_send(message, (void *) &actuators[0]);
+    answer_text(&query->answer, "OK");
     return NULL;
 }
 
 static void serialize_answer(met_t *metrics, answer_t *ans)
 {
-    // TODO
+    strbuf_t buf = {0};
+    int i;
+
+    answer_clear(ans);
+    while (metrics->values != NULL) {
+        if (metrics->invalid) {
+            ans->invalid = 1;
+            strbuf_appendf(&buf, "%s ERROR: %s\n",
+                           metrics->metric_name != NULL ? metrics->metric_name : "metric",
+                           metrics->error_msg != NULL ? metrics->error_msg : "invalid metric");
+            ++metrics;
+            continue;
+        }
+        strbuf_appendf(&buf, "%s values", metrics->metric_name != NULL ? metrics->metric_name : "metric");
+        if (metrics->values_units != NULL) {
+            strbuf_appendf(&buf, " (in %s)", metrics->values_units);
+        }
+        strbuf_appendf(&buf, ":");
+        for (i = 0; i < metrics->values_count; ++i) {
+            if (metrics->values_type == ID_UINT32) {
+                strbuf_appendf(&buf, " %u", ((uint32_t *) metrics->values)[i]);
+            } else if (metrics->values_type == ID_UINT64) {
+                strbuf_appendf(&buf, " %lu", ((uint64_t *) metrics->values)[i]);
+            } else if (metrics->values_type == ID_DOUBLE) {
+                strbuf_appendf(&buf, " %0.2lf", ((double *) metrics->values)[i]);
+            } else {
+                strbuf_appendf(&buf, " <unsupported-type:%d>", metrics->values_type);
+            }
+        }
+        strbuf_appendf(&buf, "\n");
+        ++metrics;
+    }
+
+    if (buf.length == 0) {
+        answer_error(ans, "No metrics returned");
+        free(buf.bytes);
+        return;
+    }
+    ans->bytes = buf.bytes;
+    ans->size = buf.length;
 }
 
 static char *command_get(query_t *query, char *message)
@@ -168,7 +307,6 @@ static char *command_get(query_t *query, char *message)
         plug_message_send(message, (void *) &metrics[0]);
     }
     serialize_answer(metrics, &query->answer);
-    print_metrics(metrics);
     return NULL;
 }
 
@@ -185,5 +323,6 @@ plug_message_receive(_query_metrics)
     } else if (query->command[0] == 'g') {
         return command_get(query, message);
     }
+    answer_error(&query->answer, "Unsupported command");
     return NULL; // Or return invalid
 }

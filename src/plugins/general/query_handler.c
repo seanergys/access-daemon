@@ -73,7 +73,20 @@ static int isnum(const char *string)
 
 static void answer(answer_t *ans)
 {
-    // TODO
+    if (ans == NULL) {
+        return;
+    }
+    if (ans->invalid) {
+        fprintf(stderr, "ERROR: %s\n", ans->error_msg != NULL ? ans->error_msg : "invalid query");
+    } else if (ans->bytes != NULL && ans->size > 0) {
+        printf("%.*s", (int) ans->size, (char *) ans->bytes);
+        if (((char *) ans->bytes)[ans->size - 1] != '\n') {
+            printf("\n");
+        }
+    }
+    free(ans->bytes);
+    free(ans->error_msg);
+    memset(ans, 0, sizeof(*ans));
 }
 
 plug_message_receive(_keyboard)

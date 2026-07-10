@@ -1,3 +1,4 @@
 export CC
 export CC_FLAGS
-export EAR_SRC
+export EAR_SRCDIR
+export SEANERBUS_PREFIX

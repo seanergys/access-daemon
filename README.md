@@ -8,7 +8,7 @@ This will allow us to discuss the potential problems of the code, logic and stru
 
 1) Download the EAR code in the [~~Seanergys mirror~~](https://gitlab.seanergys.fz-juelich.de/software/ear). **Problem!** The mirror is not updating the last EAR commits where I placed additional helper functions, I suggest you to use the [official EAR repository](https://gitlab.bsc.es/ear_team/ear_private) until is solved.
 2) You don't have to compile EAR, but by now you must run `autoreconf -i && ./configure` to set some definitions.
-3) Back in the folder of the Access Daemon Prototype, add the `EAR_SRC` path in the root Makefile.
+3) Back in the folder of the Access Daemon Prototype, add the `EAR_SRCDIR` path in the root Makefile.
 4) Run `make`.
 
 ### How to run
