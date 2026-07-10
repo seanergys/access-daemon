@@ -6,24 +6,35 @@ This will allow us to discuss the potential problems of the code, logic and stru
 
 ### How to compile
 
-1) Download the EAR code in the [~~Seanergys mirror~~](https://gitlab.seanergys.fz-juelich.de/software/ear). **Problem!** The mirror is not updating the last EAR commits where I placed additional helper functions, I suggest you to use the [official EAR repository](https://gitlab.bsc.es/ear_team/ear_private) until is solved.
-2) You don't have to compile EAR, but by now you must run `autoreconf -i && ./configure` to set some definitions.
-3) Back in the folder of the Access Daemon Prototype, add the `EAR_SRCDIR` path in the root Makefile.
-4) Run `make`.
+1) Download the EAR code in the [EAR Seanergys mirror](https://gitlab.seanergys.fz-juelich.de/software/ear).
+2) Enter in the EAR directory.
+3) You don't have to compile EAR, but by now you must run `autoreconf -i && ./configure` to set some definitions.
+4) (Optional) If you want to build the Data Plane plugin, compile and install the [Seanerbus](https://gitlab.seanergys.fz-juelich.de/software/seanerbus).
+5) Back in the folder of the Access Daemon Prototype, add the `EAR_SRCDIR` (and `SEANERBUS_PREFIX`) path in the root Makefile.
+6) And Run `make`.
 
-### How to run
+### How to test requests via keyboard plugin
 
-1) Just `./run.sh`.
-2) Then type a string that simulates a query received from the Data Plane:
+1) Just `sudo ./run.sh` if you want to run the Access Daemon with the keyboard plugin to receive fake requests.
+2) Then type a string that simulates a request received from the Data Plane:
 
 ```c
-Enter query: met cpu_freq get all
+Enter request: met cpu_freq get all
 cpu_freq values:
 1206000 1224000 1188000 1242000 1260000 1206000 1206000 1152000
-Enter query: act cpu_pow set all socket 40
+Enter request: act cpu_pow set all socket 40
 ```
+Take into the account that the plugins in `./run.sh` can not be compatible with your system. You can change them by others in case there are alternatives or remove all of them. But at least one compatible plugin is required to test the functionality of the Access Daemon.
 
-Available querys:
+### How to test requests via Data Plane
+
+1) Run `./run-data-plane.sh`
+2) Load the Seanerbus broker in another terminal: `RUST_LOG=info cargo run`.
+3) Send a `HelloWorldReqV1`, which we are using as the testing type, with the text in form of string requests. E.g:  `met cpu_freq get all`. You can find an example in `cpp_examples/request_test` in the Seanerbus source folder.
+
+Make sure the uuids of both the Access Daemon and the request test are the same.
+
+### Available string requests:
 
 | Domain | Metric   | Command       | Device     | Sub-device                         | Description
 |--------|----------|---------------|------------|------------------------------------|------------
@@ -39,11 +50,11 @@ Available querys:
 2) `src/plugins/general` contains the plugins that does not produce metrics, such as `query_handler.so`, intended to be the Data Plane communicator, and `metrics_central.so`, the bridge between communications and metrics.
 3) `src/plugins/metrics` contains the plugins that produce metrics.
 
-# How to build new plugins
+### Bulding new plugins
 
 The Access Daemon Prototype uses a simple plugin framework from [EAR](https://gitlab.seanergys.fz-juelich.de/software/ear). The framework dynamically loads shared objects (`.so`) and invokes specific functions exported by those plugins.
 
-One of the most important entry points is `plug_message_receive(suffix)`. Although it looks like a function, it is actually a macro that defines a symbol expected by the framework. When this symbol is implemented inside a plugin, it can be invoked automatically by the `metrics_central.so` plugin whenever a matching query is received.
+One of the most important entry points is `plug_message_receive(suffix)`. Although it looks like a function, it is actually a macro that defines a symbol expected by the framework. When this symbol is implemented inside a plugin, it can be invoked automatically by the `metrics_central.so` plugin whenever a matching request is received.
 
 For example, suppose you want to implement a plugin that reads the effective CPU frequency on x86 processors using MSRs. In query terminology, the metric request would be `cpu_freq met get`. You could implement this functionality in a plugin called `met.cpu_freq.msr.so`.
 

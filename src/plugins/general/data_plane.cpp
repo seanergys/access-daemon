@@ -89,6 +89,7 @@ plug_init(_data_plane)
             seanerbus::Address address{ seanerbus::Uuid{uuid}};
             seanerbus::client::Connection conn(host, port);
             conn.register_endpoint(address, request_handler);
+            // TODO: ask the Seanerbus for the list of plugins to load
             seanerbus::client::SimpleEventLoop sel(conn);
             thread_unblock = 1;
             /* Chain:
