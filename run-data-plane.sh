@@ -3,6 +3,13 @@
 export LD_LIBRARY_PATH=./src/common
 
 PLUGINS="data_plane.so"
+PLUGINS+=",query_handler.so"
+PLUGINS+=",metrics_central.so"
+PLUGINS+=",met.cpu_freq.msr.so"
+PLUGINS+=",met.cpu_pow.msr.so"
+PLUGINS+=",act.cpu_freq.driver_governor.so"
+PLUGINS+=",act.cpu_freq.driver_pstate.so"
+PLUGINS+=",act.cpu_pow.msr.so"
 
 # The missing plugins in the argument can be found in the dependency list
 # present in the code of each plugin.

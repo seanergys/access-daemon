@@ -89,18 +89,24 @@ static void answer(answer_t *ans)
     memset(ans, 0, sizeof(*ans));
 }
 
-plug_message_receive(_keyboard)
+static char *process_text(void *data)
 {
     const char *string = (char *) data;
     query_t query = {0};
 
+    printf("STRING: '%s'\n", string);
     if (!(string = wrdcpy(string, query.domain))) return NULL;
     if (!(string = wrdcpy(string, query.metric))) return NULL;
     if (!(string = wrdcpy(string, query.command))) return NULL;
-          string = wrdcpy(string, query.device);
+    string = wrdcpy(string, query.device);
     if (!isnum(string)) string = wrdcpy(string, query.sub_device);
     query.arguments = (char *) string;
     plug_message_send("query_metrics", &query);
     answer(&query.answer);
     return NULL;
+}
+
+plug_message_receive(_text_query)
+{
+    return process_text(data);
 }

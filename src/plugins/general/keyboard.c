@@ -39,7 +39,7 @@ static void *string_read(void *x)
             if (is(string, "exit")) {
                 string_exit();
             } else {
-                plug_message_send("keyboard", string);
+                plug_message_send("text_query", string);
             }
         }
     }

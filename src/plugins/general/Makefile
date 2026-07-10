@@ -1,9 +1,9 @@
-VPATH  =  $(EAR_SRCDIR)/common/hardware
-VPATH += :$(EAR_SRCDIR)/data_center_monitor/plugins/tests
-VPATH += :$(EAR_SRCDIR)/management/cpufreq
+SRC_DIRS  =  $(EAR_SRCDIR)/common/hardware
+SRC_DIRS += :$(EAR_SRCDIR)/data_center_monitor/plugins/tests
+SRC_DIRS += :$(EAR_SRCDIR)/management/cpufreq
 
-COMMON_DIR = ../../common
-DATA_PLANE_RPATH = -Wl,-rpath,'$$ORIGIN/../../common'
+vpath %.c $(SRC_DIRS)
+vpath %.h $(SRC_DIRS)
 
 OBJS  = \
     data_plane.so \
@@ -31,14 +31,13 @@ all: $(OBJS)
 %.so: %.c %.h
 	$(CC) $(CC_FLAGS) -fPIC -shared -o $@ $^
 
-data_plane.o: data_plane.c data_plane.h $(COMMON_DIR)/seanerbus_wrapper.h
-	$(CC) $(CC_FLAGS) -fPIC -c $< -o $@
+data_plane.so: data_plane.cpp
+	$(CXX) $(CC_FLAGS) -I$(SEANERBUS_PREFIX)/include \
+		-std=c++17 -Wno-write-strings -fPIC -shared -o $@ $< \
+		-Wl,-rpath,\$(SEANERBUS_PREFIX)/lib $(SEANERBUS_PREFIX)/lib/libseanerbus.so
 
-data_plane.so: data_plane.o $(COMMON_DIR)/libseanerbus_wrapper.so
-	$(CC) $(CC_FLAGS) -fPIC -shared -o $@ data_plane.o $(DATA_PLANE_RPATH) -L$(COMMON_DIR) -lseanerbus_wrapper
-
-topology_ext.so: topology_ext.o $(TOPO_OBJS)
-	$(CC) $(CC_FLAGS) -fPIC -shared -o $@ $^
+topology_ext.so: $(TOPO_OBJS)
+	$(CC) $(CC_FLAGS) -fPIC -shared -o $@ topology_ext.c $(TOPO_OBJS)
 
 clean:
 	rm -f *.o *.so
