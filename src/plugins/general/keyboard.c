@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <plugins/general/keyboard.h>
+#include <plugins/general/query_handler.h>
 
 static pthread_t thread;
 static int is_closing;
@@ -28,7 +29,8 @@ static int is(char *s1, const char *s2)
 
 static void *string_read(void *x)
 {
-    static char string[1024];
+    request_text_t req = {0};
+    char string[1024];
     int i;
 
     sleep(1);
@@ -39,7 +41,9 @@ static void *string_read(void *x)
             if (is(string, "exit")) {
                 string_exit();
             } else {
-                plug_message_send("text_query", string);
+                req.input = string;
+                plug_message_send("request_text", (void *) &req);
+                printf("%s", req.output);
             }
         }
     }

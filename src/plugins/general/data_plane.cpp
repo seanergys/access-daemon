@@ -1,11 +1,11 @@
-extern "C" {
+// C includes
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
-#include <common/framework.h>
-}
+#include <plugins/general/data_plane.h>
+// C++ includes
 #include <atomic>
 #include <thread>
 #include <seanerbus/client/connection.hpp>
@@ -50,6 +50,8 @@ static const char *envordef(const char *name, const char *fallback)
 */
 static void request_handler(seanerbus::client::Connection& conn, seanerbus::Message msg)
 {
+    request_text_t req_text = {0};
+
     // Redefining types
     #define DP_TYPE_TEXT MessageTypes::HELLO_WORLD_REQ_V1
     #define DpTextReq    seanerbus::msg::HelloWorldReqV1
@@ -63,9 +65,9 @@ static void request_handler(seanerbus::client::Connection& conn, seanerbus::Mess
     }
     //
     DpTextReq req(msg.payload);
-    // std::cout << "Got incoming DP_TYPE_TEXT: " << req.str_msg << std::endl;
-    plug_message_send("text_query", (void *) req.str_msg.c_str());
-    DpTextRes res(std::string("Thank you for your \"") + req.str_msg + std::string("\""));
+    req_text.input = (char *) req.str_msg.c_str();
+    plug_message_send("request_text", (void *) &req_text);
+    DpTextRes res(req_text.output);
     conn.respond_to(msg, res.to_capnp());
 }
 

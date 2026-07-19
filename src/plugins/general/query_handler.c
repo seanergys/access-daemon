@@ -2,7 +2,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <plugins/general/data_plane.h>
 #include <plugins/general/query_handler.h>
+
+static char     *output_buffer;
+static uint64_t *arguments_values;
 
 plug_identity()
 {
@@ -12,12 +16,8 @@ plug_identity()
 
 plug_init(_query_handler)
 {
-    // Configuration (plugins,periodicity)
-    return NULL;
-}
-
-plug_periodic(_query_handler)
-{
+    output_buffer    = calloc(4096, 1);
+    arguments_values = calloc(1024, sizeof(uint64_t));
     return NULL;
 }
 
@@ -71,42 +71,46 @@ static int isnum(const char *string)
     return 1;
 }
 
-static void answer(answer_t *ans)
+static char *process_text_toint(metrics_input_t *input, char *arguments)
 {
-    if (ans == NULL) {
-        return;
-    }
-    if (ans->invalid) {
-        fprintf(stderr, "ERROR: %s\n", ans->error_msg != NULL ? ans->error_msg : "invalid query");
-    } else if (ans->bytes != NULL && ans->size > 0) {
-        printf("%.*s", (int) ans->size, (char *) ans->bytes);
-        if (((char *) ans->bytes)[ans->size - 1] != '\n') {
-            printf("\n");
-        }
-    }
-    free(ans->bytes);
-    free(ans->error_msg);
-    memset(ans, 0, sizeof(*ans));
+    input->device_no = (input->device_no_name[0] == 'a')? -1 : atoi(input->device_no_name);
 }
 
 static char *process_text(void *data)
 {
-    const char *string = (char *) data;
-    query_t query = {0};
+    static request_metrics_t parsed = {0};
+    request_text_t *req = (request_text_t *) data;
+    const char *string = req->input;
+    int o, v, c;
 
-    printf("STRING: '%s'\n", string);
-    if (!(string = wrdcpy(string, query.domain))) return NULL;
-    if (!(string = wrdcpy(string, query.metric))) return NULL;
-    if (!(string = wrdcpy(string, query.command))) return NULL;
-    string = wrdcpy(string, query.device);
-    if (!isnum(string)) string = wrdcpy(string, query.sub_device);
-    query.arguments = (char *) string;
-    plug_message_send("query_metrics", &query);
-    answer(&query.answer);
+    // Parsing
+    if (!(string = wrdcpy(string, parsed.input.domain_name   ))) return NULL;
+    if (!(string = wrdcpy(string, parsed.input.device_name   ))) return NULL;
+    if (!(string = wrdcpy(string, parsed.input.metric_name   ))) return NULL;
+    if (!(string = wrdcpy(string, parsed.input.command_name  ))) return NULL;
+    if (!(string = wrdcpy(string, parsed.input.device_no_name))) return NULL;
+    process_text_toint(&parsed.input, (char *) string);
+    plug_message_send("request_metrics", (void *) &parsed);
+    // Return the metrics converted into text
+    for (o = c = 0; o < parsed.outputs_count; ++o) {
+        c += sprintf(&output_buffer[c], "%s_%s (%s): ",
+            parsed.outputs[o].device_name, parsed.outputs[o].metric_name, parsed.outputs[o].units);
+        for (v = 0; v < parsed.outputs[o].values_count; ++v) {
+            c += sprintf(&output_buffer[c], "%lu ", parsed.outputs[o].values[v]);
+        }
+        c += sprintf(&output_buffer[c], "\n");
+    }
+    req->output = output_buffer;
     return NULL;
 }
 
-plug_message_receive(_text_query)
+plug_message_receive(_request_text)
 {
     return process_text(data);
+}
+
+plug_message_receive(_request_metric)
+{
+    // More direct, no parsing needed
+    return NULL;
 }

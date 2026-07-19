@@ -1,32 +1,85 @@
 #ifndef PLUG_METRICS_CENTRAL_H
 #define PLUG_METRICS_CENTRAL_H
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#include <sched.h>
 #include <common/framework.h>
 #include <plugins/general/topology_ext.h>
 
-// met_t for readings, including reading the actuators
-// act_t for writings, it only includes the actuators
+#define MAX_METRICS_NO  2 //Maximum number of loadable metrics
+#define DEVS_ALL       -1
+#define DEVS_MASK      -2
 
-typedef struct met_s {
-    char   *metric_name;
-    int32_t device; // -1 for all devices
-    char   *sub_device;
-    void   *values;
-    int8_t  values_type;
-    char   *values_units;
-    int32_t values_count;
-    size_t  values_size; // total size
-    uint8_t invalid;
-    const char *error_msg;
-} met_t;
+typedef enum {
+    Metrics,
+    Actuators,
+} domain_t;
 
-typedef struct act_s {
-    int32_t     device;
-    char       *sub_device;
-    uint64_t   *const values;
-    uint32_t    values_count;
-    uint8_t     invalid;
-    const char *error_msg;
-} act_t;
+typedef enum {
+    Cpu,
+    Core,
+    Thread = Cpu,
+    Socket,
+    Package = Socket,
+    Uncore,
+    Dram,
+    Gpu,
+} device_t;
+
+typedef enum {
+    Pow,
+    Freq,
+} metric_t;
+
+typedef enum {
+    Get,
+    Set,
+    Read = Get,
+    Write = Set,
+    Info,
+} command_t;
+
+typedef enum {
+    Ok,
+    Error,
+} status_t;
+
+typedef struct metrics_input_s {
+    domain_t  domain;
+    char      domain_name[8];
+    metric_t  metric;
+    char      metric_name[32];
+    command_t command;
+    char      command_name[8];
+    device_t  device;
+    char      device_name[8];
+    int32_t   device_no; // currently we only accept 1 device or 'all'
+    char      device_no_name[8];
+    uint64_t *values;
+    uint32_t  values_count;
+} metrics_input_t;
+
+typedef struct metrics_output_s {
+    status_t     state;
+    const char  *error_msg;
+    metric_t     metric;
+    const char  *metric_name;
+    device_t     device;
+    const char  *device_name;
+    int32_t      device_no;
+    cpu_set_t    device_mask;
+    uint64_t    *values;
+    int32_t      values_count;
+    device_t     granularity;
+    const char  *units;
+} metrics_output_t;
+
+typedef struct request_metrics_s {
+    metrics_input_t   input;
+    metrics_output_t *outputs;
+    uint8_t           outputs_count;
+} request_metrics_t;
 
 #endif // PLUG_METRICS_CENTRAL_H

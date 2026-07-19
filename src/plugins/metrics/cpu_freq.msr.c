@@ -92,26 +92,30 @@ plug_init(_topology_ext)
 
 static char *return_metrics(void *data)
 {
-    met_t *met = (met_t *) data;
+    request_metrics_t *req = (request_metrics_t *) data;
     uint32_t cpu_max = tp->cpu_count;
     uint32_t cpu_min = 0;
+    int o = req->outputs_count;
 
     // If just one device is specified
-    if (met->device != -1) {
-        cpu_max = met->device + 1;
-        cpu_min = met->device;
+    if (req->input.device_no != -1) {
+        cpu_max = req->input.device_no + 1;
+        cpu_min = req->input.device_no;
     }
     // Computing the metric through sensor values
     get (cpu_min, cpu_max); // Getting new sensor values
     diff(cpu_min, cpu_max); // Making the difference with the previous values
     copy(cpu_min, cpu_max); // Copying the new values to the last ones array
     // Returning metric
-    met->metric_name  = "cpu_freq";
-    met->values       = &frequencies[cpu_min];
-    met->values_count = cpu_max - cpu_min;
-    met->values_size  = sizeof(uint64_t) * met->values_count;
-    met->values_type  = ID_UINT64;
-    met->values_units = "KHz";
+    req->outputs[o].device       = Cpu;
+    req->outputs[o].device_name  = "cpu";
+    req->outputs[o].metric       = Freq;
+    req->outputs[o].metric_name  = "freq";
+    req->outputs[o].granularity  = Cpu;
+    req->outputs[o].values       = &frequencies[cpu_min];
+    req->outputs[o].values_count = cpu_max - cpu_min;
+    req->outputs[o].units        = "KHz";
+    req->outputs_count++;
     return NULL;
 }
 
@@ -120,7 +124,7 @@ plug_message_receive(_met_cpu_freq_get)
     return return_metrics(data);
 }
 
-plug_message_receive(_met_all_get)
+plug_message_receive(_met_all_all_get)
 {
     return return_metrics(data);
 }
