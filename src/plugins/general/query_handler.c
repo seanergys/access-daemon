@@ -74,6 +74,7 @@ static int isnum(const char *string)
 static char *process_text_toint(metrics_input_t *input, char *arguments)
 {
     input->device_no = (input->device_no_name[0] == 'a')? -1 : atoi(input->device_no_name);
+    // Arguments
 }
 
 static char *process_text(void *data)
@@ -85,10 +86,10 @@ static char *process_text(void *data)
 
     // Parsing
     if (!(string = wrdcpy(string, parsed.input.domain_name   ))) return NULL;
-    if (!(string = wrdcpy(string, parsed.input.device_name   ))) return NULL;
     if (!(string = wrdcpy(string, parsed.input.metric_name   ))) return NULL;
-    if (!(string = wrdcpy(string, parsed.input.command_name  ))) return NULL;
+    if (!(string = wrdcpy(string, parsed.input.device_name   ))) return NULL;
     if (!(string = wrdcpy(string, parsed.input.device_no_name))) return NULL;
+    if (!(string = wrdcpy(string, parsed.input.command_name  ))) return NULL;
     process_text_toint(&parsed.input, (char *) string);
     plug_message_send("request_metrics", (void *) &parsed);
     // Return the metrics converted into text

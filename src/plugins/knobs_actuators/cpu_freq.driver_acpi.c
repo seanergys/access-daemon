@@ -40,15 +40,17 @@ plug_init(_topology_ext)
 
 static char *return_actuators_values(void *data)
 {
+    request_metrics_t *req = (request_metrics_t *) data;
+    metrics_input_t   *met = &req->input;
+    int o          = req->outputs_count;
     char value[64] = {0};
-    met_t *met  = (met_t *) data;
-    int cpu_max = tp->cpu_count;
-    int cpu_min = 0;
-    int cpu     = 0;
+    int cpu_max    = tp->cpu_count;
+    int cpu_min    = 0;
+    int cpu        = 0;
 
-    if (met->device != -1) {
-        cpu_max = met->device + 1;
-        cpu_min = met->device;
+    if (met->device_no != -1) {
+        cpu_max = met->device_no + 1;
+        cpu_min = met->device_no;
     }
     for (cpu = cpu_min; cpu < cpu_max; ++cpu) {
         current_list[cpu] = 0LLU;
@@ -57,33 +59,36 @@ static char *return_actuators_values(void *data)
         }
     }
     // Returning metric
-    met->metric_name  = "cpu_freq";
-    met->values       = &current_list[cpu_min];
-    met->values_count = cpu_max - cpu_min;
-    met->values_size  = sizeof(uint64_t) * met->values_count;
-    met->values_type  = ID_UINT64;
-    met->values_units = "KHz";
+    req->outputs[o].device       = Cpu;
+    req->outputs[o].device_name  = "cpu";
+    req->outputs[o].metric       = Freq;
+    req->outputs[o].metric_name  = "freq";
+    req->outputs[o].granularity  = Cpu;
+    req->outputs[o].values       = &current_list[cpu_min];
+    req->outputs[o].values_count = cpu_max - cpu_min;
+    req->outputs[o].units        = "KHz";
+    req->outputs_count++;
     return NULL;
 }
 
-plug_message_receive(_act_cpu_freq_get)
+plug_message_receive(_act_freq_cpu_get)
 {
     return return_actuators_values(data);
 }
 
-plug_message_receive(_act_all_get)
+plug_message_receive(_act_all_all_get)
 {
     return return_actuators_values(data);
 }
 
-plug_message_receive(_act_cpu_freq_set)
+plug_message_receive(_act_freq_cpu_set)
 {
-    char freq[16]; // Enough for a frequency in Hz
-    act_t *act = (act_t *) data;
-    uint64_t *freqs = (uint64_t *) act->values;
+    char freq_str[16]; // Enough for a frequency in Hz
+    request_metrics_t *req = (request_metrics_t *) data;
+    metrics_input_t   *act = &req->input;
     uint32_t cpu;
 
-    if (act->device >= tp->cpu_count || act->device < -1) {
+    if (act->device_no >= tp->cpu_count || act->device_no < DEVS_ALL) {
         return "[X] Invalid device";
     }
     // Fixing values count
@@ -95,8 +100,8 @@ plug_message_receive(_act_cpu_freq_set)
     if (act->device == -1 && act->values_count == 1) {
         // TODO: validate if the frequency is in the range
         cpu_freq_governor_set(-1, Governor.userspace);
-        sprintf(freq, "%lu", freqs[0]);
-        filemagic_word_mwrite(fds_sss, tp->cpu_count, freq, 1);
+        sprintf(freq_str, "%lu", act->values[0]);
+        filemagic_word_mwrite(fds_sss, tp->cpu_count, freq_str, 1);
         return NULL;
     }
     // Preparing the per-device iteration
@@ -109,14 +114,14 @@ plug_message_receive(_act_cpu_freq_set)
     // If all devices, but multiple values, we write them in order
     for (cpu = act->device; cpu < act->values_count; ++cpu) {
         // TODO: validate if the frequency is in the range
-        sprintf(freq, "%lu", freqs[cpu]);
+        sprintf(freq_str, "%lu", act->values[cpu]);
         cpu_freq_governor_set(cpu, Governor.userspace);
-        filemagic_word_write(fds_sss[cpu], freq, strlen(freq), 1);
+        filemagic_word_write(fds_sss[cpu], freq_str, strlen(freq_str), 1);
     }
     return NULL;
 }
 
-plug_message_receive(_act_cpu_freq_reset)
+plug_message_receive(_act_freq_cpu_reset)
 {
     if (strlen(default_frequency) > 0 && strstr(default_frequency, "unsup") != NULL) {
         filemagic_word_mwrite(fds_sss, tp->cpu_count, default_frequency, 1);

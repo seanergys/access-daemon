@@ -8,7 +8,7 @@
 #include <common/framework.h>
 #include <plugins/general/topology_ext.h>
 
-#define MAX_METRICS_NO  2 //Maximum number of loadable metrics
+#define MAX_METRICS_NO  24 //Maximum number of loadable metrics
 #define DEVS_ALL       -1
 #define DEVS_MASK      -2
 
@@ -19,12 +19,15 @@ typedef enum {
 
 typedef enum {
     Cpu,
-    Core,
+    Core = Cpu,
     Thread = Cpu,
+    Pp0 = Cpu,
     Socket,
     Package = Socket,
     Uncore,
+    Pp1 = Uncore,
     Dram,
+    Mem = Dram,
     Gpu,
 } device_t;
 
@@ -57,6 +60,7 @@ typedef struct metrics_input_s {
     char      device_name[8];
     int32_t   device_no; // currently we only accept 1 device or 'all'
     char      device_no_name[8];
+    cpu_set_t device_mask; // exploration pending
     uint64_t *values;
     uint32_t  values_count;
 } metrics_input_t;
@@ -69,7 +73,6 @@ typedef struct metrics_output_s {
     device_t     device;
     const char  *device_name;
     int32_t      device_no;
-    cpu_set_t    device_mask;
     uint64_t    *values;
     int32_t      values_count;
     device_t     granularity;

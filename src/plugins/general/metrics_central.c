@@ -27,8 +27,8 @@ plug_init(_metrics_central)
 static char *form_message(metrics_input_t *input)
 {
     static char msg[128] = {0};
-    sprintf(msg, "%s_%s_%s_%s", input->domain_name, input->device_name,
-        input->metric_name, input->command_name);
+    sprintf(msg, "%s_%s_%s_%s", input->domain_name, input->metric_name,
+        input->device_name, input->command_name);
     return msg;
 }
 

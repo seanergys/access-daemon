@@ -12,7 +12,7 @@
 #define DEV_PKG  0
 #define DEV_PP0  1
 
-typedef struct values_s {
+typedef struct dev_ctx_s {
     topology_t  *tp;
     device_t     device;
     const char  *device_name;
@@ -22,9 +22,9 @@ typedef struct values_s {
     uint64_t    *power;
     timestamp_t  sensors1_time;
     timestamp_t  sensors2_time;
-} values_t;
+} dev_ctx_t;
 
-static values_t    values[DEVS_MAX];
+static dev_ctx_t   ctxs[DEVS_MAX];
 static topology_t *tp;
 static topology_t *tp_socket;
 static uint64_t    power_unit;
@@ -36,41 +36,42 @@ plug_identity()
     *tags_deps = "!topology_ext";
 }
 
-static void get(values_t *vals, uint32_t dev_min, uint32_t dev_max)
+static void get(dev_ctx_t *ctx, uint32_t dev_min, uint32_t dev_max)
 {
     uint i;
 
-    if (vals->addr_stat == 0x000) {
+    if (ctx->addr_stat == 0x000) {
         return;
     }
-    timestamp_get(&vals->sensors2_time);
+    timestamp_get(&ctx->sensors2_time);
     for (i = dev_min; i < dev_max; i++) {
-        msr_read(vals->tp->cpus[i].id, &vals->sensors2[i], sizeof(uint64_t), vals->addr_stat);
-        vals->sensors2[i] = getbits64(vals->sensors2[i], 31, 0);
+        // TODO: Control failed states
+        msr_read(ctx->tp->cpus[i].id, &ctx->sensors2[i], sizeof(uint64_t), ctx->addr_stat);
+        ctx->sensors2[i] = getbits64(ctx->sensors2[i], 31, 0);
     }
 }
 
-static void diff(values_t *vals, uint32_t dev_min, uint32_t dev_max)
+static void diff(dev_ctx_t *ctx, uint32_t dev_min, uint32_t dev_max)
 {
-    double vals__power_d;
+    double ctx__power_d;
     double secs;
     uint32_t i;
 
-    if (vals->addr_stat == 0x000) {
+    if (ctx->addr_stat == 0x000) {
         return;
     }
-    secs = timestamp_fdiff(&vals->sensors2_time, &vals->sensors1_time, TIME_SECS, TIME_MSECS);
+    secs = timestamp_fdiff(&ctx->sensors2_time, &ctx->sensors1_time, TIME_SECS, TIME_MSECS);
     for (i = dev_min; i < dev_max; i++) {
-        vals->power[i] = overflow_magic_u64(vals->sensors2[i], vals->sensors1[i], MAXBITS32);
-        vals__power_d  = (((double) vals->power[i]) * units) / secs;
-        vals->power[i] = (uint64_t) vals__power_d;
+        ctx->power[i] = overflow_magic_u64(ctx->sensors2[i], ctx->sensors1[i], MAXBITS32);
+        ctx__power_d  = (((double) ctx->power[i]) * units) / secs;
+        ctx->power[i] = (uint64_t) ctx__power_d;
     }
 }
 
-static void copy(values_t *vals, uint32_t dev_min, uint32_t dev_max)
+static void copy(dev_ctx_t *ctx, uint32_t dev_min, uint32_t dev_max)
 {
-    vals->sensors1_time = vals->sensors2_time;
-    memcpy(&vals->sensors1[dev_min], &vals->sensors2[dev_min], sizeof(uint64_t)*(dev_max-dev_min));
+    ctx->sensors1_time = ctx->sensors2_time;
+    memcpy(&ctx->sensors1[dev_min], &ctx->sensors2[dev_min], sizeof(uint64_t)*(dev_max-dev_min));
 }
 
 plug_init(_topology_ext)
@@ -82,8 +83,8 @@ plug_init(_topology_ext)
     tp = (topology_t *) data;
     #define ADDR_INIT(pu, pkg, dram, pp0, pp1) { \
         power_unit  = pu;   \
-        values[DEV_PKG].addr_stat = pkg; \
-        values[DEV_PP0].addr_stat = pp0; \
+        ctxs[DEV_PKG].addr_stat = pkg; \
+        ctxs[DEV_PP0].addr_stat = pp0; \
     }
     if (tp->vendor == VENDOR_INTEL && tp->model >= MODEL_TIGERLAKE) {
         ADDR_INIT(0x00000606, 0x00000611, 0x619, 0x00000639, 0x641);
@@ -96,12 +97,12 @@ plug_init(_topology_ext)
     topology_select(tp, &tp_socket_st, TPSelect.socket, TPGroup.merge, 0);
     tp_socket = &tp_socket_st;
     // More initializations
-    values[DEV_PKG].tp = tp_socket;
-    values[DEV_PP0].tp = tp;
-    values[DEV_PKG].device = Socket;
-    values[DEV_PP0].device = Cpu;
-    values[DEV_PKG].device_name = "socket";
-    values[DEV_PP0].device_name = "cpu";
+    ctxs[DEV_PKG].tp = tp_socket;
+    ctxs[DEV_PP0].tp = tp;
+    ctxs[DEV_PKG].device = Socket;
+    ctxs[DEV_PP0].device = Cpu;
+    ctxs[DEV_PKG].device_name = "socket";
+    ctxs[DEV_PP0].device_name = "cpu";
     // Testing if MSR can be read
     if (state_fail(msr_test(tp, MSR_RD))) {
         return "[X] not enough privileges to read MSR";
@@ -121,57 +122,74 @@ plug_init(_topology_ext)
     units = pow(0.5, (double) getbits64(res, 12, 8));
     // Allocatiion and first readings
     for (d = 0; d < DEVS_MAX; ++d) {
-        values[d].sensors1 = calloc(tp->cpu_count, sizeof(uint64_t));
-        values[d].sensors2 = calloc(tp->cpu_count, sizeof(uint64_t));
-        values[d].power    = calloc(tp->cpu_count, sizeof(uint64_t));
-        get (&values[d], 0, values[d].tp->cpu_count);
-        copy(&values[d], 0, values[d].tp->cpu_count);
+        ctxs[d].sensors1 = calloc(tp->cpu_count, sizeof(uint64_t));
+        ctxs[d].sensors2 = calloc(tp->cpu_count, sizeof(uint64_t));
+        ctxs[d].power    = calloc(tp->cpu_count, sizeof(uint64_t));
+        get (&ctxs[d], 0, ctxs[d].tp->cpu_count);
+        copy(&ctxs[d], 0, ctxs[d].tp->cpu_count);
     }
     return NULL;
 }
 
-static char *return_metrics(void *data, values_t *vals)
+static char *return_metrics(void *data, dev_ctx_t *ctx)
 {
     request_metrics_t *req = (request_metrics_t *) data;
-    uint32_t cpu_max = vals->tp->cpu_count;
+    metrics_input_t   *met = &req->input;
+    uint32_t cpu_max = ctx->tp->cpu_count;
     uint32_t cpu_min = 0000000;
     int o = req->outputs_count;
 
-    // TODO: Device number test
+    if (met->device_no >= ctx->tp->cpu_count || met->device_no < DEVS_ALL) {
+        return "[X] Invalid device";
+    }
     // If just one device is specified
-    if (req->input.device_no != -1) {
+    if (req->input.device_no != DEVS_ALL) {
         cpu_max = req->input.device_no + 1;
         cpu_min = req->input.device_no;
     }
-    // Computing the metric through sensor values
-    get (vals, cpu_min, cpu_max); // Getting new sensor values
-    diff(vals, cpu_min, cpu_max); // Making the difference with the previous values
-    copy(vals, cpu_min, cpu_max); // Copying the new values to the last ones array
+    // This is key behaviour:
+    // - get() function has to read all devices. All counters must be
+    //   synchronized if there will be periodic calls from the Telemetry
+    //   Collector.
+    // - This could be problematic if too many components are consulting some
+    //   metric values. But is easy to solve. We can just measure the time
+    //   passed and cover the get-diff-copy functions with a conditional that
+    //   tests if the time passed is greater or equal than one or half second.
+    //   If not, we can just immediately return the last readings.
+    get (ctx, 0, ctx->tp->cpu_count);
+    diff(ctx, 0, ctx->tp->cpu_count);
+    copy(ctx, 0, ctx->tp->cpu_count); // Copying the new values to the last ones array
     // Returning metric
-    req->outputs[o].device       = vals->device;
-    req->outputs[o].device_name  = vals->device_name;
+    req->outputs[o].device       = ctx->device;
+    req->outputs[o].device_name  = ctx->device_name;
     req->outputs[o].metric       = Pow;
     req->outputs[o].metric_name  = "pow";
-    req->outputs[o].granularity  = vals->device;
-    req->outputs[o].values       = vals->power;
+    req->outputs[o].granularity  = ctx->device;
+    req->outputs[o].values       = ctx->power;
     req->outputs[o].values_count = cpu_max - cpu_min;
     req->outputs[o].units        = "W";
     req->outputs_count++;
     return NULL;
 }
 
-plug_message_receive(_met_cpu_pow_get)
+plug_message_receive(_met_pow_cpu_get)
 {
-    return return_metrics(data, &values[DEV_PP0]);
+    return return_metrics(data, &ctxs[DEV_PP0]);
 }
 
-plug_message_receive(_met_socket_pow_get)
+plug_message_receive(_met_pow_socket_get)
 {
-    return return_metrics(data, &values[DEV_PKG]);
+    return return_metrics(data, &ctxs[DEV_PKG]);
+}
+
+plug_message_receive(_met_pow_all_get)
+{
+    return_metrics(data, &ctxs[DEV_PP0]);
+    return return_metrics(data, &ctxs[DEV_PKG]);
 }
 
 plug_message_receive(_met_all_all_get)
 {
-    return_metrics(data, &values[DEV_PP0]);
-    return return_metrics(data, &values[DEV_PKG]);
+    return_metrics(data, &ctxs[DEV_PP0]);
+    return return_metrics(data, &ctxs[DEV_PKG]);
 }

@@ -25,16 +25,18 @@ plug_init(_topology_ext)
 
 static char *return_actuators_values(void *data)
 {
+    request_metrics_t *req = (request_metrics_t *) data;
+    metrics_input_t   *met = &req->input;
     uint args[2] = {0, -1};
     uint reps[2] = {0, -1};
-    met_t *met  = (met_t *) data;
-    int cpu_max = tp->cpu_count;
-    int cpu_min = 0;
-    int cpu     = 0;
+    int o        = req->outputs_count;
+    int cpu_max  = tp->cpu_count;
+    int cpu_min  = 0;
+    int cpu      = 0;
 
-    if (met->device != -1) {
-        cpu_max = met->device + 1;
-        cpu_min = met->device;
+    if (met->device_no != DEVS_ALL) {
+        cpu_max = met->device_no + 1;
+        cpu_min = met->device_no;
     }
     for (cpu = cpu_min; cpu < cpu_max; ++cpu) {
         current_list[cpu] = 0LLU;
@@ -47,34 +49,38 @@ static char *return_actuators_values(void *data)
         }
     }
     // Returning metric
-    met->metric_name  = "cpu_freq";
-    met->values       = &current_list[cpu_min];
-    met->values_count = cpu_max - cpu_min;
-    met->values_size  = sizeof(uint64_t) * met->values_count;
-    met->values_type  = ID_UINT64;
-    met->values_units = "KHz";
+    req->outputs[o].device       = Cpu;
+    req->outputs[o].device_name  = "cpu";
+    req->outputs[o].metric       = Freq;
+    req->outputs[o].metric_name  = "freq";
+    req->outputs[o].granularity  = Cpu;
+    req->outputs[o].values       = &current_list[cpu_min];
+    req->outputs[o].values_count = cpu_max - cpu_min;
+    req->outputs[o].units        = "KHz";
+    req->outputs_count++;
     return NULL;
 }
 
-plug_message_receive(_act_cpu_freq_get)
+plug_message_receive(_act_freq_cpu_get)
 {
     return return_actuators_values(data);
 }
 
-plug_message_receive(_act_all_get)
+plug_message_receive(_act_all_all_get)
 {
     return return_actuators_values(data);
 }
 
-plug_message_receive(_act_cpu_freq_set)
+plug_message_receive(_act_freq_cpu_set)
 {
-    uint args[2] = { 0, -1};
+    request_metrics_t *req = (request_metrics_t *) data;
+    metrics_input_t   *act = &req->input;
+    uint args[2] = { 0, -1 };
     uint reps[1] = { -1 };
-    act_t *act = (act_t *) data;
-    uint64_t *freqs = (uint64_t *) act->values;
-    uint32_t cpu;
+    int cpu;
 
-    if (act->device >= tp->cpu_count || act->device < -1) {
+    if (act->device_no >= tp->cpu_count ||
+        act->device_no <  DEVS_ALL) {
         return "[X] Invalid device";
     }
     // Fixing values count
@@ -83,29 +89,28 @@ plug_message_receive(_act_cpu_freq_set)
     }
     // If received 'all devices' but just one actuator value, it means all the
     // actuators should be set to the same value.
-    if (act->device == -1 && act->values_count == 1) {
+    if (act->device == DEVS_ALL && act->values_count == 1) {
         for (cpu = 0; cpu < tp->cpu_count; ++cpu) {
             // TODO: validate if the frequency is in the range
             args[0]  = setbits32(0, tp->cpus[cpu].apicid, 31, 16);
-            args[0] |= ((((uint) freqs[0]) / 1000) & 0xFFFF);
+            args[0] |= ((((uint) act->values[0]) / 1000) & 0xFFFF);
             // TODO: discriminate turbo values from (sub)-nominals
             hsmp_send(tp->cpus[cpu].socket_id, HSMP_SET_BOOST_LIMIT, args, reps);
             // TODO: error control
         }
         return NULL;
     }
-    // Preparing the per-device iteration
-    if (act->device == -1) {
-        act->values_count = tp->cpu_count;
-        act->device = 0;
-    } else {
+    // Here, values_count is equal or less than cpu_count
+    if (act->device_no != DEVS_ALL) {
         act->values_count = act->device + 1;
+    } else {
+        act->device_no = 0;
     }
     // If all devices, but multiple values, we write them in order
-    for (cpu = act->device; cpu < act->values_count; ++cpu) {
+    for (cpu = act->device_no; cpu < act->values_count; ++cpu) {
         // TODO: validate if the frequency is in the range
         args[0]  = setbits32(0, tp->cpus[cpu].apicid, 31, 16);
-        args[0] |= ((((uint) freqs[cpu]) / 1000) & 0xFFFF);
+        args[0] |= ((((uint) act->values[cpu]) / 1000) & 0xFFFF);
         // TODO: discriminate turbo values from (sub)-nominals
         hsmp_send(tp->cpus[cpu].socket_id, HSMP_SET_BOOST_LIMIT, args, reps);
         // TODO: error control
@@ -113,7 +118,7 @@ plug_message_receive(_act_cpu_freq_set)
     return NULL;
 }
 
-plug_message_receive(_act_cpu_freq_reset)
+plug_message_receive(_act_freq_cpu_reset)
 {
     // TODO:
     return NULL;

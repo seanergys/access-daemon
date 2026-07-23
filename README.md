@@ -1,10 +1,18 @@
 # (Hardware) Access Daemon Prototype
 
-Although Access Daemon is not part of the demonstrator, I wanted a  prototype because I thought the best way to find design issues is by doing.
+The Access Daemon is a plugin-based program and Linux daemon. Each plugin represents a different metric, such as CPU frequency, temperature, FLOPS, and so on. The AD receives requests and sends responses through the [Data Plane](https://gitlab.seanergys.fz-juelich.de/software/seanerbus).
 
-This will allow us to discuss the potential problems of the code, logic and structure, and therefore leave some of the work done for whoever has to develop the final version.
+## Table of contents
 
-### How to compile
+- [How to compile](#how-to-compile)
+  - [How to compile and test the Seanerbus](#how-to-compile-and-test-the-seanerbus)
+- [How to test requests via keyboard plugin](#how-to-test-requests-via-keyboard-plugin)
+- [How to test requests via Data Plane](#how-to-test-requests-via-data-plane)
+- [Available string requests](#available-string-requests)
+- [Folder structure](#folder-structure)
+- [Bulding new plugins](#bulding-new-plugins)
+
+## How to compile
 
 1) Download the EAR code in the [EAR Seanergys mirror](https://gitlab.seanergys.fz-juelich.de/software/ear).
 2) Enter in the EAR directory.
@@ -13,70 +21,125 @@ This will allow us to discuss the potential problems of the code, logic and stru
 5) Back in the folder of the Access Daemon Prototype, add the `EAR_SRCDIR` (and `SEANERBUS_PREFIX`) path in the root Makefile.
 6) And Run `make`.
 
-### How to test requests via keyboard plugin
+### How to compile and test the Seanerbus
+
+By now, the Seanerbus repository does not offer this information in its README.md. Provisionally, we provide a small guide.
+
+```c
+git submodule update --init --recursive #Download dependant repositories like fmt
+sudo apt install capnproto libcapnp-dev #Download and install Cap'n Proto
+
+cd seanerbus
+git clean -xdf && git reset --hard
+cmake -S cpp_examples -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=/opt/seanerbus
+cmake --build build -j2 
+cmake --install build
+```
+```c
+# If cpp_examples is not enough
+cmake -S bindings/cpp -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_STANDARD=17 -DCMAKE_CXX_STANDARD_REQUIRED=ON -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=/opt/seanerbus
+```
+```c
+cd server
+RUST_LOG=info cargo run
+```
+```c
+cd cpp_examples/build
+./response_test a366335b-52f0-4658-a42b-7e73e83ec91f
+```
+```c
+cd cpp_examples/build
+./request_test a366335b-52f0-4658-a42b-7e73e83ec91f
+```
+
+## How to test requests via keyboard plugin
 
 1) Just `sudo ./run.sh` if you want to run the Access Daemon with the keyboard plugin to receive fake requests.
 2) Then type a string that simulates a request received from the Data Plane:
 
 ```c
-Enter request: met cpu_freq get all
+Enter request: met freq cpu all get
 cpu_freq values:
 1206000 1224000 1188000 1242000 1260000 1206000 1206000 1152000
-Enter request: act cpu_pow set all socket 40
+Enter request: act pow cpu all set socket 40
 ```
 Take into the account that the plugins in `./run.sh` can not be compatible with your system. You can change them by others in case there are alternatives or remove all of them. But at least one compatible plugin is required to test the functionality of the Access Daemon.
 
-### How to test requests via Data Plane
+## How to test requests via Data Plane
 
 1) Run `./run-data-plane.sh`
 2) Load the Seanerbus broker in another terminal: `RUST_LOG=info cargo run`.
-3) Send a `HelloWorldReqV1`, which we are using as the testing type, with the text in form of string requests. E.g:  `met cpu_freq get all`. You can find an example in `cpp_examples/request_test` in the Seanerbus source folder.
+3) Send a `HelloWorldReqV1`, containing a request in string format like keyboard plugin test does. E.g:  `met freq cpu all get`. You can find an example in `cpp_examples/request_test` in the Seanerbus source folder. But it will looks like this:
+
+```c
+auto res = seanerbus::msg::HelloWorldReqV1("met freq cpu all get").to_capnp();
+```
 
 Make sure the uuids of both the Access Daemon and the request test are the same.
 
-### Available string requests:
+## Available string requests:
 
-| Domain | Metric   | Command       | Device     | Sub-device                         | Description
-|--------|----------|---------------|------------|------------------------------------|------------
-| met    | all      | get           |            |                                    | Returns all metrics of all devices.
-| met    | cpu_freq | get           | all / #int |                                    | Returns the frequency (KHz) of all or specific cpu.
-| met    | cpu_pow  | get           | all / #int |                                    | Returns the power consumption (W) of all or specific cpu.
-| act    | cpu_freq | get/set/reset | all / #int |                                    | Sets the frequency limit (KHz) of all or specific cpu.
-| act    | cpu_pow  | get/set/reset | all / #int | socket/core/uncore/dram (optional) | Sets the power limit (W) of all or specific sub-devices (socket is default)
+| Domain | Metric   | Device type | Device number | Command       | Args                        | Description
+|--------|----------|-------------|---------------|---------------|-----------------------------|------------
+| met    | all[^1]  | all         | all           | get           | -                           | Gets all metrics of all sensor devices.
+| met    | freq     | cpu         | all / #int    | get           | -                           | Gets the frequency (KHz) of all or specific cpu sensor.
+| met    | pow      | cpu         | all / #int    | get           | -                           | Gets the power consumption (W) of all or specific cpu sensor (pp0).[^2]
+| met    | pow      | socket      | all / #int    | get           | -                           | Gets the power consumption (W) of all or specific socket sensor (pkg).
+| act    | all      | all         | all           | get           | -                           | Gets the values set in actuators of all devices
+| act    | freq     | cpu         | all / #int    | get/set/reset | N uint64_t values (set)[^3] | Gets/sets/resets the frequency limit (KHz) of all or specific cpu actuator.
+| act    | pow      | cpu         | all / #int    | get/set/reset | N uint64_t values (set)     | Gets/sets/resets the power limit (W) of all or specific cpu (pp0) actuator. 
+| act    | pow      | socket      | all / #int    | get/set/reset | N uint64_t values (set)     | Gets/sets/resets the power limit (W) of all or specific socket (pkg) actuator. 
 
-### Folder structure
+[^1]: The `all` word can be used more than this table reflects. In exampe, can be used to get all the RAPL domains when requesting the `pow` metric or actuator.
+[^2]: The `dram` and `pp1` domains of RAPL are also developed, but we are not exposed until demanded.
+[^3]: You can send one value for `all` devices. Then all the devices within an actuator domain will be set to the same value. 
+
+More examples of string/text requests:
+```c
+met all  all all get
+met freq cpu all get
+met freq cpu 2 get # Frequency of the CPU#2
+met pow all all get # Power consumption of all RAPL domains
+met pow socket 1 get # Power consumption of socket (pkg) #1
+act pow socket all get # Power limit of all sockets (pkgs)
+act pow socket all set 40 50 # New power limits for all sockets
+act pow socket 0 set 40 # New power limit for socket #0
+```
+
+## Folder structure
 
 1) In `src/common` some EAR helper functions are compiled in `libcommon.so`. Including the framework that calls specific functions of the plugins.
 2) `src/plugins/general` contains the plugins that does not produce metrics, such as `query_handler.so`, intended to be the Data Plane communicator, and `metrics_central.so`, the bridge between communications and metrics.
-3) `src/plugins/metrics` contains the plugins that produce metrics.
+3) `src/plugins/metrics` contains the plugins that returns metrics.
+4) `src/plugins/knobs_actuators` contains the plugins that sets and gets the actuator limits.
 
-### Bulding new plugins
+## Bulding new plugins
 
 The Access Daemon Prototype uses a simple plugin framework from [EAR](https://gitlab.seanergys.fz-juelich.de/software/ear). The framework dynamically loads shared objects (`.so`) and invokes specific functions exported by those plugins.
 
 One of the most important entry points is `plug_message_receive(suffix)`. Although it looks like a function, it is actually a macro that defines a symbol expected by the framework. When this symbol is implemented inside a plugin, it can be invoked automatically by the `metrics_central.so` plugin whenever a matching request is received.
 
-For example, suppose you want to implement a plugin that reads the effective CPU frequency on x86 processors using MSRs. In query terminology, the metric request would be `cpu_freq met get`. You could implement this functionality in a plugin called `met.cpu_freq.msr.so`.
+For example, suppose you want to implement a plugin that reads the effective CPU frequency on x86 processors using MSRs. In request terminology, the metric request would be `met freq cpu get`. You could implement this functionality in a plugin called `met.cpu_freq.msr.so`.
 
 Inside that plugin, you would define:
 ```c
-plug_message_receive(_cpu_freq_met_get)
+plug_message_receive(_met_freq_cpu_get)
 ```
 
 When `metrics_central.so` receives a query requesting CPU frequency metrics, it internally triggers:
 ```c
-plug_message_send("met_cpu_freq_get")
+plug_message_send("met_freq_cpu_get")
 ```
 
-The framework then resolves and calls the corresponding `plug_message_receive(_met_cpu_freq_get)` implementation exported by the loaded plugin, which returns the requested metric.
+The framework then resolves and calls the corresponding `plug_message_receive(_met_freq_cpu_get)` implementation exported by the loaded plugin, which returns the requested metric.
 
-To better understand this mechanism, it is recommended to inspect the implementations in:
+To better understand this mechanism, it is recommended to inspect the implementations of:
 
 * [`cpu_freq.dummy.c`](src/plugins/metrics/cpu_freq.dummy.c)
 * [`cpu_freq.msr.c`](src/plugins/metrics/cpu_freq.msr.c)
 * [`framework.h`](./src/common/framework.h)
 
-The framework also allows multiple plugins to implement the same symbol for different architectures. For example, several plugins may define `plug_message_receive(_met_cpu_freq_get)`, each targeting a different CPU family or data source. You can select which plugins are loaded by editing [`run.sh`](./run.sh).
+The framework also allows multiple plugins to implement the same symbol for different architectures. For example, several plugins may define `plug_message_receive(_met_freq_cpu_get)`, each targeting a different CPU family or data source. You can select which plugins are loaded by editing [`run.sh`](./run.sh).
 
 Another important mechanism is `plug_action_init(_suffix)`, commonly seen as `plug_action_init(_topology_ext)`. This macro defines initialization callbacks executed by the framework during plugin startup.
 

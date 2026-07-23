@@ -119,7 +119,7 @@ static char *return_metrics(void *data)
     return NULL;
 }
 
-plug_message_receive(_met_cpu_freq_get)
+plug_message_receive(_met_freq_cpu_get)
 {
     return return_metrics(data);
 }
