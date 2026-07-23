@@ -91,14 +91,16 @@ Make sure the uuids of both the Access Daemon and the request test are the same.
 | act    | pow      | socket      | all / #int    | get/set/reset | N uint64_t values (set)     | Gets/sets/resets the power limit (W) of all or specific socket (pkg) actuator. 
 
 [^1]: The `all` word can be used more than this table reflects. In exampe, can be used to get all the RAPL domains when requesting the `pow` metric or actuator.
+
 [^2]: The `dram` and `pp1` domains of RAPL are also developed, but we are not exposed until demanded.
-[^3]: You can send one value for `all` devices. Then all the devices within an actuator domain will be set to the same value. 
+
+[^3]: You can send one value for `all` devices. Then all the devices within an actuator domain will be set to the same value.
 
 More examples of string/text requests:
 ```c
 met all  all all get
 met freq cpu all get
-met freq cpu 2 get # Frequency of the CPU#2
+met freq cpu 2 get # Frequency of the cpu #2
 met pow all all get # Power consumption of all RAPL domains
 met pow socket 1 get # Power consumption of socket (pkg) #1
 act pow socket all get # Power limit of all sockets (pkgs)
