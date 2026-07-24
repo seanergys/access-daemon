@@ -1,33 +1,33 @@
 # (Hardware) Access Daemon Prototype
 
-The Access Daemon is a plugin-based program and Linux daemon. Each plugin represents a different metric, such as CPU frequency, temperature, FLOPS, and so on. The AD receives requests and sends responses through the [Data Plane](https://gitlab.seanergys.fz-juelich.de/software/seanerbus).
+The Access Daemon is a plugin-based program that runs as a Linux daemon. Each plugin represents a different metric, such as CPU frequency, temperature, FLOPS, and so on. The AD receives requests and sends responses through the [Data Plane](https://gitlab.seanergys.fz-juelich.de/software/seanerbus).
 
 ## Table of contents
 
 - [How to compile](#how-to-compile)
-  - [How to compile and test the Seanerbus](#how-to-compile-and-test-the-seanerbus)
+  - [How to compile and test Seanerbus](#how-to-compile-and-test-seanerbus)
 - [How to test requests via keyboard plugin](#how-to-test-requests-via-keyboard-plugin)
 - [How to test requests via Data Plane](#how-to-test-requests-via-data-plane)
 - [Available string requests](#available-string-requests)
 - [Folder structure](#folder-structure)
-- [Bulding new plugins](#bulding-new-plugins)
+- [Building new plugins](#building-new-plugins)
 
 ## How to compile
 
-1) Download the EAR code in the [EAR Seanergys mirror](https://gitlab.seanergys.fz-juelich.de/software/ear).
-2) Enter in the EAR directory.
-3) You don't have to compile EAR, but by now you must run `autoreconf -i && ./configure` to set some definitions.
-4) (Optional) If you want to build the Data Plane plugin, compile and install the [Seanerbus](https://gitlab.seanergys.fz-juelich.de/software/seanerbus).
-5) Back in the folder of the Access Daemon Prototype, add the `EAR_SRCDIR` (and `SEANERBUS_PREFIX`) path in the root Makefile.
-6) And Run `make`.
+1) Download the EAR code from the [EAR Seanergys mirror](https://gitlab.seanergys.fz-juelich.de/software/ear).
+2) Enter the EAR directory.
+3) You don't have to compile EAR, but for now you must run `autoreconf -i && ./configure` to set some definitions.
+4) (Optional) If you want to build the Data Plane plugin, compile and install [Seanerbus](https://gitlab.seanergys.fz-juelich.de/software/seanerbus).
+5) Back in the Access Daemon Prototype directory, add the `EAR_SRCDIR` (and `SEANERBUS_PREFIX`) path to the root Makefile.
+6) Run `make`.
 
-### How to compile and test the Seanerbus
+### How to compile and test Seanerbus
 
-By now, the Seanerbus repository does not offer this information in its README.md. Provisionally, we provide a small guide.
+The Seanerbus repository does not currently include this information in its README.md, so we provide a short guide here.
 
 ```c
-git submodule update --init --recursive #Download dependant repositories like fmt
-sudo apt install capnproto libcapnp-dev #Download and install Cap'n Proto
+git submodule update --init --recursive # Download dependencies such as fmt
+sudo apt install capnproto libcapnp-dev # Download and install Cap'n Proto
 
 cd seanerbus
 git clean -xdf && git reset --hard
@@ -63,36 +63,36 @@ cpu_freq values:
 1206000 1224000 1188000 1242000 1260000 1206000 1206000 1152000
 Enter request: act pow cpu all set socket 40
 ```
-Take into the account that the plugins in `./run.sh` can not be compatible with your system. You can change them by others in case there are alternatives or remove all of them. But at least one compatible plugin is required to test the functionality of the Access Daemon.
+Keep in mind that the plugins in `./run.sh` may not be compatible with your system. You can replace them with alternatives or remove them. However, at least one compatible plugin is required to test the Access Daemon.
 
 ## How to test requests via Data Plane
 
 1) Run `./run-data-plane.sh`
 2) Load the Seanerbus broker in another terminal: `RUST_LOG=info cargo run`.
-3) Send a `HelloWorldReqV1`, containing a request in string format like keyboard plugin test does. E.g:  `met freq cpu all get`. You can find an example in `cpp_examples/request_test` in the Seanerbus source folder. But it will looks like this:
+3) Send a `HelloWorldReqV1` containing a string request, as in the keyboard plugin test. For example: `met freq cpu all get`. You can find an example in `cpp_examples/request_test` in the Seanerbus source folder. It will look like this:
 
 ```c
 auto res = seanerbus::msg::HelloWorldReqV1("met freq cpu all get").to_capnp();
 ```
 
-Make sure the uuids of both the Access Daemon and the request test are the same.
+Make sure the UUIDs of both the Access Daemon and the request test are the same.
 
 ## Available string requests:
 
 | Domain | Metric   | Device type | Device number | Command       | Args                        | Description
 |--------|----------|-------------|---------------|---------------|-----------------------------|------------
 | met    | all[^1]  | all         | all           | get           | -                           | Gets all metrics of all sensor devices.
-| met    | freq     | cpu         | all / #int    | get           | -                           | Gets the frequency (KHz) of all or specific cpu sensor.
-| met    | pow      | cpu         | all / #int    | get           | -                           | Gets the power consumption (W) of all or specific cpu sensor (pp0).[^2]
-| met    | pow      | socket      | all / #int    | get           | -                           | Gets the power consumption (W) of all or specific socket sensor (pkg).
+| met    | freq     | cpu         | all / #int    | get           | -                           | Gets the frequency (KHz) of all or a specific CPU sensor.
+| met    | pow      | cpu         | all / #int    | get           | -                           | Gets the power consumption (W) of all or a specific CPU sensor (pp0).[^2]
+| met    | pow      | socket      | all / #int    | get           | -                           | Gets the power consumption (W) of all or a specific socket sensor (pkg).
 | act    | all      | all         | all           | get           | -                           | Gets the values set in actuators of all devices
-| act    | freq     | cpu         | all / #int    | get/set/reset | N uint64_t values (set)[^3] | Gets/sets/resets the frequency limit (KHz) of all or specific cpu actuator.
-| act    | pow      | cpu         | all / #int    | get/set/reset | N uint64_t values (set)     | Gets/sets/resets the power limit (W) of all or specific cpu (pp0) actuator. 
-| act    | pow      | socket      | all / #int    | get/set/reset | N uint64_t values (set)     | Gets/sets/resets the power limit (W) of all or specific socket (pkg) actuator. 
+| act    | freq     | cpu         | all / #int    | get/set/reset | N uint64_t values (set)[^3] | Gets/sets/resets the frequency limit (KHz) of all or a specific CPU actuator.
+| act    | pow      | cpu         | all / #int    | get/set/reset | N uint64_t values (set)     | Gets/sets/resets the power limit (W) of all or a specific CPU (pp0) actuator.
+| act    | pow      | socket      | all / #int    | get/set/reset | N uint64_t values (set)     | Gets/sets/resets the power limit (W) of all or a specific socket (pkg) actuator.
 
-[^1]: The `all` word can be used more than this table reflects. In exampe, can be used to get all the RAPL domains when requesting the `pow` metric or actuator.
+[^1]: The `all` keyword can be used more broadly than this table shows. For example, it can be used to get all RAPL domains when requesting the `pow` metric or actuator.
 
-[^2]: The `dram` and `pp1` domains of RAPL are also developed, but we are not exposed until demanded.
+[^2]: Support for the RAPL `dram` and `pp1` domains has also been developed, but is not exposed until needed.
 
 [^3]: You can send one value for `all` devices. Then all the devices within an actuator domain will be set to the same value.
 
@@ -110,12 +110,12 @@ act pow socket 0 set 40 # New power limit for socket #0
 
 ## Folder structure
 
-1) In `src/common` some EAR helper functions are compiled in `libcommon.so`. Including the framework that calls specific functions of the plugins.
-2) `src/plugins/general` contains the plugins that does not produce metrics, such as `query_handler.so`, intended to be the Data Plane communicator, and `metrics_central.so`, the bridge between communications and metrics.
-3) `src/plugins/metrics` contains the plugins that returns metrics.
-4) `src/plugins/knobs_actuators` contains the plugins that sets and gets the actuator limits.
+1) In `src/common`, some EAR helper functions are compiled into `libcommon.so`, including the framework that calls specific plugin functions.
+2) `src/plugins/general` contains plugins that do not produce metrics, such as `query_handler.so`, intended to be the Data Plane communicator, and `metrics_central.so`, the bridge between communications and metrics.
+3) `src/plugins/metrics` contains the plugins that return metrics.
+4) `src/plugins/knobs_actuators` contains the plugins that set and get actuator limits.
 
-## Bulding new plugins
+## Building new plugins
 
 The Access Daemon Prototype uses a simple plugin framework from [EAR](https://gitlab.seanergys.fz-juelich.de/software/ear). The framework dynamically loads shared objects (`.so`) and invokes specific functions exported by those plugins.
 
