@@ -8,6 +8,7 @@ vpath %.h $(SRC_DIRS)
 OBJS  = \
     data_plane.so \
     keyboard.so \
+    metrics_accumulator.so \
     metrics_central.so \
     query_handler.so \
     topology_ext.so

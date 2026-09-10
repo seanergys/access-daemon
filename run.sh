@@ -4,6 +4,7 @@ export LD_LIBRARY_PATH=./src/common
 
 PLUGINS="keyboard.so"
 PLUGINS+=",query_handler.so"
+PLUGINS+=",metrics_accumulator.so:1000"
 PLUGINS+=",metrics_central.so"
 PLUGINS+=",met.cpu_freq.msr.so"
 PLUGINS+=",met.cpu_pow.msr.so"

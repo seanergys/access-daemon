@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <common/framework.h>
+#include <common/ear_extensions.h>
 #include <common/math_operations.h>
 #include <common/hardware/bithack.h>
 #include <metrics/common/msr.h>
@@ -17,11 +18,11 @@ typedef struct dev_ctx_s {
     device_t     device;
     const char  *device_name;
     uint64_t     addr_stat;
-    uint64_t    *sensors1;
-    uint64_t    *sensors2;
-    uint64_t    *power;
-    timestamp_t  sensors1_time;
-    timestamp_t  sensors2_time;
+    uint64_t    *energy;
+    uint64_t    *energy_last; // A copy for the diff
+    uint64_t    *power; // Space for the immediate/accumulation plugin
+    timestamp_t  time;
+    timestamp_t  time_last;
 } dev_ctx_t;
 
 static dev_ctx_t   ctxs[DEVS_MAX];
@@ -38,40 +39,46 @@ plug_identity()
 
 static void get(dev_ctx_t *ctx, uint32_t dev_min, uint32_t dev_max)
 {
+    uint64_t sensor;
     uint i;
 
     if (ctx->addr_stat == 0x000) {
         return;
     }
-    timestamp_get(&ctx->sensors2_time);
+    timestamp_get(&ctx->time);
     for (i = dev_min; i < dev_max; i++) {
         // TODO: Control failed states
-        msr_read(ctx->tp->cpus[i].id, &ctx->sensors2[i], sizeof(uint64_t), ctx->addr_stat);
-        ctx->sensors2[i] = getbits64(ctx->sensors2[i], 31, 0);
+        msr_read(ctx->tp->cpus[i].id, &sensor, sizeof(uint64_t), ctx->addr_stat);
+        ctx->energy[i] = (uint64_t) (((double) getbits64(sensor, 31, 0)) * units);
     }
 }
 
-static void diff(dev_ctx_t *ctx, uint32_t dev_min, uint32_t dev_max)
+static void imm(dev_ctx_t *ctx, uint32_t dev_min, uint32_t dev_max)
 {
-    double ctx__power_d;
-    double secs;
-    uint32_t i;
+    double secs = 0.0;
+    double diff = 0.0;
+    uint i;
 
-    if (ctx->addr_stat == 0x000) {
+    // Seconds since last all. Is only required to convert from energy
+    // accumulation to immediate power value.
+    if (timestamp_is_zero(&ctx->time_last)) {
         return;
     }
-    secs = timestamp_fdiff(&ctx->sensors2_time, &ctx->sensors1_time, TIME_SECS, TIME_MSECS);
+    secs = timestamp_fdiff(&ctx->time, &ctx->time_last, TIME_SECS, TIME_MSECS);
+    // Given this is an accumulative register, as is the energy concept, we have
+    // to make the difference between the current sample and the last one, and
+    // divide by the seconds passed to get the power value.
     for (i = dev_min; i < dev_max; i++) {
-        ctx->power[i] = overflow_magic_u64(ctx->sensors2[i], ctx->sensors1[i], MAXBITS32);
-        ctx__power_d  = (((double) ctx->power[i]) * units) / secs;
-        ctx->power[i] = (uint64_t) ctx__power_d;
+        diff = (double) (ctx->energy[i] - ctx->energy_last[i]);
+        ctx->power[i] = (uint64_t) ceil(diff / secs);
     }
 }
 
 static void copy(dev_ctx_t *ctx, uint32_t dev_min, uint32_t dev_max)
 {
-    ctx->sensors1_time = ctx->sensors2_time;
-    memcpy(&ctx->sensors1[dev_min], &ctx->sensors2[dev_min], sizeof(uint64_t)*(dev_max-dev_min));
+    // Saving last values to convert to immediate
+    memcpy(&ctx->energy_last[dev_min], &ctx->energy[dev_min], sizeof(uint64_t) * (dev_max - dev_min));
+    ctx->time_last = ctx->time;
 }
 
 plug_init(_topology_ext)
@@ -101,8 +108,8 @@ plug_init(_topology_ext)
     ctxs[DEV_PP0].tp = tp;
     ctxs[DEV_PKG].device = Socket;
     ctxs[DEV_PP0].device = Cpu;
-    ctxs[DEV_PKG].device_name = "socket";
-    ctxs[DEV_PP0].device_name = "cpu";
+    ctxs[DEV_PKG].device_name = MET_NAME(Socket);
+    ctxs[DEV_PP0].device_name = MET_NAME(Cpu);
     // Testing if MSR can be read
     if (state_fail(msr_test(tp, MSR_RD))) {
         return "[X] not enough privileges to read MSR";
@@ -122,9 +129,9 @@ plug_init(_topology_ext)
     units = pow(0.5, (double) getbits64(res, 12, 8));
     // Allocatiion and first readings
     for (d = 0; d < DEVS_MAX; ++d) {
-        ctxs[d].sensors1 = calloc(tp->cpu_count, sizeof(uint64_t));
-        ctxs[d].sensors2 = calloc(tp->cpu_count, sizeof(uint64_t));
-        ctxs[d].power    = calloc(tp->cpu_count, sizeof(uint64_t));
+        ctxs[d].energy      = calloc(tp->cpu_count, sizeof(uint64_t));
+        ctxs[d].energy_last = calloc(tp->cpu_count, sizeof(uint64_t));
+        ctxs[d].power       = calloc(tp->cpu_count, sizeof(uint64_t)); // Space for immediate
         get (&ctxs[d], 0, ctxs[d].tp->cpu_count);
         copy(&ctxs[d], 0, ctxs[d].tp->cpu_count);
     }
@@ -134,55 +141,63 @@ plug_init(_topology_ext)
 static char *return_metrics(void *data, dev_ctx_t *ctx)
 {
     request_metrics_t *req = (request_metrics_t *) data;
+    metrics_output_t  *out = &req->outputs[req->outputs_count];
     metrics_input_t   *met = &req->input;
-    uint32_t cpu_max = ctx->tp->cpu_count;
-    uint32_t cpu_min = 0000000;
-    int o = req->outputs_count;
+    uint32_t     immediate = (met->command == GetAcc);
+    uint32_t       cpu_max = ctx->tp->cpu_count;
+    uint32_t       cpu_min = 0;
 
     if (met->device_no >= ctx->tp->cpu_count || met->device_no < DEVS_ALL) {
         return "[X] Invalid device";
     }
     // If just one device is specified
-    if (req->input.device_no != DEVS_ALL) {
-        cpu_max = req->input.device_no + 1;
-        cpu_min = req->input.device_no;
+    if (met->device_no != DEVS_ALL) {
+        cpu_max = met->device_no + 1;
+        cpu_min = met->device_no;
     }
-    // This is key behaviour:
-    // - get() function has to read all devices. All counters must be
-    //   synchronized if there will be periodic calls from the Telemetry
-    //   Collector.
-    // - This could be problematic if too many components are consulting some
-    //   metric values. But is easy to solve. We can just measure the time
-    //   passed and cover the get-diff-copy functions with a conditional that
-    //   tests if the time passed is greater or equal than one or half second.
-    //   If not, we can just immediately return the last readings.
-    get (ctx, 0, ctx->tp->cpu_count);
-    diff(ctx, 0, ctx->tp->cpu_count);
-    copy(ctx, 0, ctx->tp->cpu_count); // Copying the new values to the last ones array
+    // Given the difference is only required to get the immediate value, and the
+    // power is only offered when accumulation plugin is enabled, which only
+    // asks for all devices in regular periods of time and does not let others
+    // from reading values, this plugin does not have potential dangers.
+    get (ctx, cpu_min, cpu_max);
+    imm (ctx, cpu_min, cpu_max);
+    copy(ctx, cpu_min, cpu_max);
     // Returning metric
-    req->outputs[o].device       = ctx->device;
-    req->outputs[o].device_name  = ctx->device_name;
-    req->outputs[o].metric       = Pow;
-    req->outputs[o].metric_name  = "pow";
-    req->outputs[o].granularity  = ctx->device;
-    req->outputs[o].values       = ctx->power;
-    req->outputs[o].values_count = cpu_max - cpu_min;
-    req->outputs[o].units        = "W";
-    req->outputs_count++;
+    out[0].device       = ctx->device;
+    out[0].device_name  = ctx->device_name;
+    out[0].metric       = Energy;
+    out[0].metric_name  = MET_NAME(Energy);
+    out[0].time         = ctx->time;
+    out[0].values       = &ctx->energy[cpu_min];
+    out[0].values_count = cpu_max - cpu_min;
+    out[0].units        = "J";
+    out[0].granularity  = ctx->device;
+    if (immediate) {
+    out[1].device       = ctx->device;
+    out[1].device_name  = ctx->device_name;
+    out[1].metric       = Pow;
+    out[1].metric_name  = MET_NAME(Pow);
+    out[1].time         = ctx->time;
+    out[1].values       = &ctx->power[cpu_min];
+    out[1].values_count = cpu_max - cpu_min;
+    out[1].units        = "W";
+    out[1].granularity  = ctx->device;
+    }
+    req->outputs_count += 1 + immediate;
     return NULL;
 }
 
-plug_message_receive(_met_pow_cpu_get)
+plug_message_receive(_met_energy_cpu_get)
 {
     return return_metrics(data, &ctxs[DEV_PP0]);
 }
 
-plug_message_receive(_met_pow_socket_get)
+plug_message_receive(_met_energy_socket_get)
 {
     return return_metrics(data, &ctxs[DEV_PKG]);
 }
 
-plug_message_receive(_met_pow_all_get)
+plug_message_receive(_met_energy_all_get)
 {
     return_metrics(data, &ctxs[DEV_PP0]);
     return return_metrics(data, &ctxs[DEV_PKG]);

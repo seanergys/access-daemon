@@ -40,10 +40,10 @@ plug_init(_topology_ext)
     // Initializations
     ctxs[CPUPOW_SOCKET].devs_count = tp->socket_count;
     ctxs[CPUPOW_SOCKET].dev        = Socket;
-    ctxs[CPUPOW_SOCKET].dev_name   = "socket";
+    ctxs[CPUPOW_SOCKET].dev_name   = MET_NAME(Socket);
     ctxs[CPUPOW_CORE  ].devs_count = tp->cpu_count;
     ctxs[CPUPOW_CORE  ].dev        = Cpu;
-    ctxs[CPUPOW_CORE  ].dev_name   = "cpu";
+    ctxs[CPUPOW_CORE  ].dev_name   = MET_NAME(Cpu);
     // Allocations
     for (i = 0; i < CPUPOW_DOMAINS; ++i) {
         ctxs[i].dev_cpupow      = i;
@@ -75,11 +75,11 @@ static char *get_actuators(void *data, dev_ctx_t *ctx)
     req->outputs[o].device       = ctx->dev;
     req->outputs[o].device_name  = ctx->dev_name;
     req->outputs[o].metric       = Pow;
-    req->outputs[o].metric_name  = "pow";
-    req->outputs[o].granularity  = ctx->dev;
+    req->outputs[o].metric_name  = MET_NAME(Pow);
     req->outputs[o].values       = &ctx->current_knobs[cpu_min];
-    req->outputs[o].values_count = cpu_max - cpu_min;
     req->outputs[o].units        = "W";
+    req->outputs[o].values_count = cpu_max - cpu_min;
+    req->outputs[o].granularity  = ctx->dev;
     req->outputs_count++;
     return NULL;
 }
