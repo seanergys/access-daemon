@@ -25,7 +25,7 @@ plug_init(_topology_ext)
 
 static char *return_actuators_values(void *data)
 {
-    request_metrics_t *req = (request_metrics_t *) data;
+    metrics_call_t *req = (metrics_call_t *) data;
     metrics_input_t   *met = &req->input;
     uint args[2] = {0, -1};
     uint reps[2] = {0, -1};
@@ -73,7 +73,7 @@ plug_message_receive(_act_all_all_get)
 
 plug_message_receive(_act_freq_cpu_set)
 {
-    request_metrics_t *req = (request_metrics_t *) data;
+    metrics_call_t *req = (metrics_call_t *) data;
     metrics_input_t   *act = &req->input;
     uint args[2] = { 0, -1 };
     uint reps[1] = { -1 };

@@ -2,8 +2,11 @@
 
 export LD_LIBRARY_PATH=./src/common
 
-PLUGINS="data_plane.so"
-PLUGINS+=",query_handler.so"
+PLUGINS="keyboard.so"
+PLUGINS+=",seanerbus.so"
+PLUGINS+=",request_handler.so"
+PLUGINS+=",request_handler_text.so"
+PLUGINS+=",metrics_accumulator.so:1000" #Not mandatory
 PLUGINS+=",metrics_central.so"
 PLUGINS+=",met.cpu_freq.msr.so"
 PLUGINS+=",met.cpu_pow.msr.so"

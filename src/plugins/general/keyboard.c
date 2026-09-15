@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <plugins/general/keyboard.h>
-#include <plugins/general/query_handler.h>
+#include <plugins/general/request_handler.h>
 
 static pthread_t thread;
 static int is_closing;
@@ -42,7 +42,7 @@ static void *string_read(void *x)
                 string_exit();
             } else {
                 req.input = string;
-                plug_message_send("request_text", (void *) &req);
+                plug_message_send("received_request_text", (void *) &req);
                 printf("%s", req.output);
             }
         }

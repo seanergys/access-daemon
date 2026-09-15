@@ -113,7 +113,7 @@ plug_init(_topology_ext)
 
 static char *return_metrics(void *data)
 {
-    request_metrics_t *req = (request_metrics_t *) data;
+    metrics_call_t *req = (metrics_call_t *) data;
     metrics_output_t  *out = &req->outputs[req->outputs_count];
     uint32_t   accumulated = (req->input.command == GetAcc);
     uint32_t       cpu_max = tp->cpu_count;

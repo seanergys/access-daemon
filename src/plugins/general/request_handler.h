@@ -1,5 +1,5 @@
-#ifndef PLUG_QUERY_HANDLER_H
-#define PLUG_QUERY_HANDLER_H
+#ifndef REQUEST_HANDLER_H
+#define REQUEST_HANDLER_H
 
 #include <common/framework.h>
 #include <plugins/general/metrics_central.h>
@@ -9,4 +9,4 @@ typedef struct request_text_s {
     char  *output;
 } request_text_t;
 
-#endif // PLUG_QUERY_HANDLER_H
+#endif // REQUEST_HANDLER_H

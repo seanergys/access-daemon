@@ -30,6 +30,7 @@ static topology_t *tp;
 static topology_t *tp_socket;
 static uint64_t    power_unit;
 static double      units;
+static int         accumulator_enabled;
 
 plug_identity()
 {
@@ -138,9 +139,15 @@ plug_init(_topology_ext)
     return NULL;
 }
 
+plug_init(_metrics_accumulator)
+{
+    // The accumulator plugin is present so we can get accumulative values
+    accumulator_enabled = 1;
+}
+
 static char *return_metrics(void *data, dev_ctx_t *ctx)
 {
-    request_metrics_t *req = (request_metrics_t *) data;
+    metrics_call_t *req = (metrics_call_t *) data;
     metrics_output_t  *out = &req->outputs[req->outputs_count];
     metrics_input_t   *met = &req->input;
     uint32_t     immediate = (met->command == GetAcc);

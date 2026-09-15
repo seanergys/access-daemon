@@ -5,7 +5,7 @@
 #include <plugins/general/metrics_accumulator.h>
 
 static pthread_mutex_t   lock = PTHREAD_MUTEX_INITIALIZER;
-static request_metrics_t acc; // General accumulation of metrics
+static metrics_call_t acc; // General accumulation of metrics
 
 plug_identity()
 {
@@ -31,14 +31,14 @@ plug_periodic(_metrics_accumulator)
     // Resetting
     acc.outputs_count = 0;
     // Every second (or periodic time set by the admin)
-    plug_message_send("request_metrics_indirect", (void *) &acc);
+    plug_message_send("metrics_call_indirect", (void *) &acc);
     return NULL;
 }
 
-plug_message_receive(_request_metrics)
+plug_message_receive(_metrics_call)
 {
     static __thread metrics_output_t *outs = NULL; // Returning data
-    request_metrics_t *req = (request_metrics_t *) data;
+    metrics_call_t *req = (metrics_call_t *) data;
     int dev_max, dev_min;
     int a, o;
 

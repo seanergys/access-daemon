@@ -1,6 +1,7 @@
 OBJS  = \
     cpu_freq.msr.so \
-    cpu_pow.msr.so
+    cpu_pow.msr.so \
+    gpu_pow.nvml.so
 
 all: $(OBJS)
 

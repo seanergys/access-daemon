@@ -34,7 +34,7 @@ static char *form_message(metrics_input_t *input)
 
 static char *call_metrics_plugins(void *data)
 {
-    request_metrics_t *req = (request_metrics_t *) data;
+    metrics_call_t *req = (metrics_call_t *) data;
     char *message = form_message(&req->input);
     // Preparing returning output
     memset(outputs, 0, sizeof(metrics_output_t) * MAX_METRICS_NO);
@@ -45,12 +45,13 @@ static char *call_metrics_plugins(void *data)
     return NULL;
 }
 
-plug_message_receive(_request_metrics)
+plug_message_receive(_metrics_call)
 {
     return call_metrics_plugins(data);
 }
 
-plug_message_receive(_request_metrics_indirect)
+plug_message_receive(_metrics_call_indirect)
 {
+    // Used when some other plugin definition of metrics_call() overlaps.
     return call_metrics_plugins(data);
 }

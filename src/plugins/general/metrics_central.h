@@ -45,6 +45,8 @@ typedef enum {
     Energy,
     Freq,
     AccFreq,
+    FreqMem,
+    AccFreqMem,
 } metric_t;
 
 typedef enum {
@@ -65,7 +67,6 @@ typedef struct metrics_input_s {
     char          device_name[8];
     int32_t       device_no; // currently we only accept 1 device or 'all'
     char          device_no_name[8];
-    cpu_set_t     device_mask; // exploration pending
     metric_t      metric; // metric/actuator id
     char          metric_name[32];
     uint64_t     *values; // actuator values
@@ -91,8 +92,8 @@ typedef struct request_metrics_s {
     metrics_input_t   input;
     status_t          state;
     const char       *error_msg;
-    metrics_output_t *outputs;
+    metrics_output_t *outputs; // 1 input, N outputs
     uint8_t           outputs_count;
-} request_metrics_t;
+} metrics_call_t;
 
 #endif // PLUG_METRICS_CENTRAL_H

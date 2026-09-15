@@ -6,11 +6,12 @@ vpath %.c $(SRC_DIRS)
 vpath %.h $(SRC_DIRS)
 
 OBJS  = \
-    data_plane.so \
     keyboard.so \
     metrics_accumulator.so \
     metrics_central.so \
-    query_handler.so \
+    request_handler.so \
+    request_handler_text.so \
+    seanerbus.so \
     topology_ext.so
 
 TOPO_OBJS = \
@@ -32,10 +33,9 @@ all: $(OBJS)
 %.so: %.c %.h
 	$(CC) $(CC_FLAGS) -fPIC -shared -o $@ $^
 
-data_plane.so: data_plane.cpp
-	$(CXX) $(CC_FLAGS) -I$(SEANERBUS_PREFIX)/include \
-		-std=c++17 -Wno-write-strings -fPIC -shared -o $@ $< \
-		-Wl,-rpath,\$(SEANERBUS_PREFIX)/lib $(SEANERBUS_PREFIX)/lib/libseanerbus.so
+seanerbus.so: seanerbus.c
+	$(CC) $(CC_FLAGS) -fPIC -shared -I$(SEANERBUS_PREFIX)/include -o $@ $^ \
+	-Wl,--disable-new-dtags,-rpath,\$(SEANERBUS_PREFIX)/lib $(SEANERBUS_PREFIX)/lib/libseanerbus_c.so
 
 topology_ext.so: $(TOPO_OBJS)
 	$(CC) $(CC_FLAGS) -fPIC -shared -o $@ topology_ext.c $(TOPO_OBJS)

@@ -55,7 +55,7 @@ plug_init(_topology_ext)
 
 static char *get_actuators(void *data, dev_ctx_t *ctx)
 {
-    request_metrics_t *req = (request_metrics_t *) data;
+    metrics_call_t *req = (metrics_call_t *) data;
     metrics_input_t   *met = &req->input;
     int o       = req->outputs_count;
     int cpu_max = ctx->devs_count;
@@ -108,7 +108,7 @@ plug_message_receive(_act_all_all_get)
 
 static char *set_actuators(void *data, dev_ctx_t *ctx)
 {
-    request_metrics_t *req    = (request_metrics_t *) data;
+    metrics_call_t *req    = (metrics_call_t *) data;
     metrics_input_t   *act    = &req->input;
     int cpu_max               = ctx->devs_count;
     int cpu_min               = 0;

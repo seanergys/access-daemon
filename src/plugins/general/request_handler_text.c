@@ -2,19 +2,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <plugins/general/data_plane.h>
-#include <plugins/general/query_handler.h>
+//#include <plugins/general/data_plane.h>
+#include <plugins/general/request_handler.h>
 
 static char     *output_buffer;
 static uint64_t *arguments_values;
 
 plug_identity()
 {
-    *tag       = "query_handler";
+    *tag       = "request_handler_text";
     *tags_deps = NULL;
 }
 
-plug_init(_query_handler)
+plug_init(_request_handler_text)
 {
     output_buffer    = calloc(4096, 1);
     arguments_values = calloc(1024, sizeof(uint64_t));
@@ -101,10 +101,12 @@ static char *process_input_metrics_toint(metrics_input_t *input, char *arguments
     else if (strcasecmp(input->metric_name, MET_NAME(Energy) ) == 0) { input->metric = Energy;  }
     else if (strcasecmp(input->metric_name, MET_NAME(Freq)   ) == 0) { input->metric = Freq;    }
     else if (strcasecmp(input->metric_name, MET_NAME(AccFreq)) == 0) { input->metric = AccFreq; }
+    else if (strcasecmp(input->metric_name, MET_NAME(FreqMem)) == 0) { input->metric = FreqMem; }
+    else if (strcasecmp(input->metric_name, MET_NAME(AccFreqMem)) == 0) { input->metric = AccFreqMem; }
     // TODO: ¿Arguments?
 }
 
-static char *process_output_metrics_tochar(request_metrics_t *parsed)
+static char *process_output_metrics_tochar(metrics_call_t *parsed)
 {
     int o, v, c;
 
@@ -129,7 +131,7 @@ static char *process_output_metrics_tochar(request_metrics_t *parsed)
 
 static char *process_text_metrics(request_text_t *req)
 {
-    request_metrics_t parsed = {0};
+    metrics_call_t parsed = {0};
     const char *string = req->input;
 
     // Parsing
@@ -139,7 +141,7 @@ static char *process_text_metrics(request_text_t *req)
     if (!(string = wrdcpy(string, parsed.input.device_no_name))) return NULL;
     if (!(string = wrdcpy(string, parsed.input.command_name  ))) return NULL;
     process_input_metrics_toint(&parsed.input, (char *) string);
-    plug_message_send("request_metrics", (void *) &parsed);
+    plug_message_send("metrics_call", (void *) &parsed);
     // Return the metrics converted into text
     req->output = process_output_metrics_tochar(&parsed);
     return NULL;
@@ -155,13 +157,7 @@ static char *process_text(void *data)
     if (strncasecmp(string, "cfg", 3) == 0) return process_text_configuration(req);
 }
 
-plug_message_receive(_request_text)
+plug_message_receive(_received_request_text)
 {
     return process_text(data);
-}
-
-plug_message_receive(_request_metric)
-{
-    // More direct, no parsing needed
-    return NULL;
 }
