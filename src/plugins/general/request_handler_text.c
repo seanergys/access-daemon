@@ -51,26 +51,6 @@ char *wrdcpy(const char *string, char *dst)
     return (char *) string;
 }
 
-static int isnum(const char *string)
-{
-    if (!string) {
-        return 0;
-    }
-    while (isspace((unsigned char) *string)) {
-        string++;
-    }
-    if (*string == '\0') {
-        return 0;
-    }
-    while (*string && !isspace((unsigned char) *string)) {
-        if (!isdigit((unsigned char) *string)) {
-            return 0;
-        }
-        string++;
-    }
-    return 1;
-}
-
 static char *process_text_configuration(request_text_t *req)
 {
     char *string = req->input;
@@ -85,24 +65,32 @@ static char *process_text_configuration(request_text_t *req)
     return NULL;
 }
 
+static int is(char *s1, const char *s2)
+{
+    return strncasecmp(s1, s2, strlen(s1)) == 0;
+}
+
 static char *process_input_metrics_toint(metrics_input_t *input, char *arguments)
 {
     input->device_no = (input->device_no_name[0] == 'a')? -1 : atoi(input->device_no_name);
-    // Devices
-    if      (strcasecmp(input->device_name, "all"            ) == 0) { input->device = AllMetrics; }
-    else if (strcasecmp(input->device_name, MET_NAME(Cpu)    ) == 0) { input->device = Cpu;        }
-    else if (strcasecmp(input->device_name, MET_NAME(Socket) ) == 0) { input->device = Socket;     }
-    else if (strcasecmp(input->device_name, MET_NAME(Uncore) ) == 0) { input->device = Uncore;     }
-    else if (strcasecmp(input->device_name, MET_NAME(Gpu)    ) == 0) { input->device = Gpu;        }
-    // Metrics
-    if      (strcasecmp(input->metric_name, "all"            ) == 0) { input->metric = AllDevices; }
-    else if (strcasecmp(input->metric_name, MET_NAME(Pow)    ) == 0) { input->metric = Pow;     }
-    else if (strcasecmp(input->metric_name, MET_NAME(Pwr)    ) == 0) { input->metric = Pwr;     }
-    else if (strcasecmp(input->metric_name, MET_NAME(Energy) ) == 0) { input->metric = Energy;  }
-    else if (strcasecmp(input->metric_name, MET_NAME(Freq)   ) == 0) { input->metric = Freq;    }
-    else if (strcasecmp(input->metric_name, MET_NAME(AccFreq)) == 0) { input->metric = AccFreq; }
-    else if (strcasecmp(input->metric_name, MET_NAME(FreqMem)) == 0) { input->metric = FreqMem; }
-    else if (strcasecmp(input->metric_name, MET_NAME(AccFreqMem)) == 0) { input->metric = AccFreqMem; }
+    if      (is(input->domain_name , MET_NAME(Met)    )) { input->domain  = Met;        }
+    else if (is(input->domain_name , MET_NAME(Act)    )) { input->domain  = Act;        }
+    if      (is(input->command_name, MET_NAME(Get)    )) { input->command = Get;        }
+    else if (is(input->command_name, MET_NAME(Set)    )) { input->command = Set;        }
+    else if (is(input->command_name, MET_NAME(Info)   )) { input->command = Info;       }
+    if      (is(input->device_name , MET_NAME(All)    )) { input->device  = All; }
+    else if (is(input->device_name , MET_NAME(Cpu)    )) { input->device  = Cpu;        }
+    else if (is(input->device_name , MET_NAME(Socket) )) { input->device  = Socket;     }
+    else if (is(input->device_name , MET_NAME(Uncore) )) { input->device  = Uncore;     }
+    else if (is(input->device_name , MET_NAME(Gpu)    )) { input->device  = Gpu;        }
+    if      (is(input->metric_name , MET_NAME(All)    )) { input->metric  = All;        }
+    else if (is(input->metric_name , MET_NAME(Pow)    )) { input->metric  = Pow;        }
+    else if (is(input->metric_name , MET_NAME(Pwr)    )) { input->metric  = Pwr;        }
+    else if (is(input->metric_name , MET_NAME(Energy) )) { input->metric  = Energy;     }
+    else if (is(input->metric_name , MET_NAME(Freq)   )) { input->metric  = Freq;       }
+    else if (is(input->metric_name , MET_NAME(AccFreq))) { input->metric  = AccFreq;    }
+    else if (is(input->metric_name , MET_NAME(FreqMem))) { input->metric  = FreqMem;    }
+    else if (is(input->metric_name , MET_NAME(AccFreqMem))) { input->metric = AccFreqMem; }
     // TODO: ¿Arguments?
 }
 
@@ -117,12 +105,18 @@ static char *process_output_metrics_tochar(metrics_call_t *parsed)
         return output_buffer;
     }
     for (o = c = 0; o < parsed->outputs_count; ++o) {
-        c += sprintf(&output_buffer[c], "%s_%s (%s): ",
+        c += sprintf(&output_buffer[c], "%s_%s (%s)",
             parsed->outputs[o].device_name,
             parsed->outputs[o].metric_name,
             parsed->outputs[o].units);
-        for (v = 0; v < parsed->outputs[o].values_count; ++v) {
-            c += sprintf(&output_buffer[c], "%lu ", parsed->outputs[o].values[v]);
+        c += sprintf(&output_buffer[c], ": ");
+        if (parsed->input.command == Info) {
+            c += sprintf(&output_buffer[c], "%d devices", parsed->outputs[o].devs_count);
+        }
+        if (parsed->input.command == Get) {
+            for (v = 0; v < parsed->outputs[o].values_count; ++v) {
+                c += sprintf(&output_buffer[c], "%lu ", parsed->outputs[o].values[v]);
+            }
         }
         c += sprintf(&output_buffer[c], "\n");
     }

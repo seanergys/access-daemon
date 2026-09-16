@@ -8,7 +8,7 @@ vpath %.h $(SRC_DIRS)
 OBJS  = \
     keyboard.so \
     metrics_accumulator.so \
-    metrics_central.so \
+    metrics_caller.so \
     request_handler.so \
     request_handler_text.so \
     seanerbus.so \

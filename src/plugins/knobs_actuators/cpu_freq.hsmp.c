@@ -3,7 +3,7 @@
 #include <common/framework.h>
 #include <common/hardware/bithack.h>
 #include <metrics/common/hsmp.c>
-#include <plugins/general/metrics_central.h>
+#include <common/metrics_types.h>
 
 static topology_t *tp;
 static uint64_t   *current_list;

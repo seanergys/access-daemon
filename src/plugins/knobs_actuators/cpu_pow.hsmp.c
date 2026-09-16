@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <common/framework.h>
-#include <plugins/general/metrics_central.h>
+#include <common/metrics_types.h>
 #include <management/cpupow/archs/amd17.c>
 
 typedef struct dev_ctx_s {

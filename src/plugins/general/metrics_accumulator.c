@@ -15,6 +15,10 @@ plug_identity()
 
 plug_init(_metrics_accumulator)
 {
+    static uint32_t enabled = 1;
+    // Sharing some information with other plugins that are implementing the
+    // metrics_accumulator initialization function.
+    *data_alloc = &enabled;
     sprintf(acc.input.domain_name , "met");
     sprintf(acc.input.metric_name , "all");
     sprintf(acc.input.device_name , "all");
@@ -49,10 +53,9 @@ plug_message_receive(_metrics_call)
         memset(outs, 0, sizeof(metrics_output_t) * MAX_METRICS_NO);
     }
     req->outputs = outs;
-    // If it is an actuator, do nothing
-    if (strcasecmp(req->input.domain_name, MET_NAME(Actuator)) == 0) {
-        return NULL;
-    }
+    // If it is not a Metric nor Get, let the call pipeline to continue
+    if (req->input.domain  != Metric) { return NULL; }
+    if (req->input.command != Get   ) { return NULL; }
     // If is a metric then this is a trap, do not call any metrics plugin
     while (pthread_mutex_trylock(&lock));
     for (a = o = 0; a < acc.outputs_count; a++) {

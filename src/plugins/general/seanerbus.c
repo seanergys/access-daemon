@@ -44,8 +44,8 @@ static void *listener(void *p)
     return NULL;
 }
 
-// We need a post_init()
-plug_init(_seanerbus)
+// Called after the initialization of all plugins
+plug_init_post(_seanerbus)
 {
     seanerbus_error_t *err = NULL;
     int m_errno = 0;

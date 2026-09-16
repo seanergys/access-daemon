@@ -2,7 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <common/framework.h>
-#include <plugins/general/metrics_central.h>
+#include <common/metrics_types.h>
+#include <plugins/general/topology_ext.h>
 #include <management/cpupow/archs/intel63.c>
 
 typedef struct dev_ctx_s {

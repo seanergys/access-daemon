@@ -2,7 +2,7 @@
 #define REQUEST_HANDLER_H
 
 #include <common/framework.h>
-#include <plugins/general/metrics_central.h>
+#include <common/metrics_types.h>
 
 typedef struct request_text_s {
     char  *input;

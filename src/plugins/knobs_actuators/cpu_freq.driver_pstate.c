@@ -3,8 +3,9 @@
 #include <string.h>
 #include <common/framework.h>
 #include <common/utils/keeper.h>
-#include <metrics/common/file.h>
-#include <plugins/general/metrics_central.h>
+#include <common/metrics_types.h>
+#include <metrics/common/file.h> // This is from EAR
+#include <plugins/general/topology_ext.h>
 #include <plugins/knobs_actuators/cpu_freq.driver_governor.h>
 
 static topology_t *tp;

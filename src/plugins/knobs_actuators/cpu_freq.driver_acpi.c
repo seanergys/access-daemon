@@ -3,8 +3,9 @@
 #include <string.h>
 #include <common/framework.h>
 #include <common/utils/keeper.h>
+#include <common/metrics_types.h>
 #include <metrics/common/file.h>
-#include <plugins/general/metrics_central.h>
+#include <plugins/general/topology_ext.h>
 #include <plugins/knobs_actuators/cpu_freq.driver_governor.h>
 
 #define PATH_SSS  "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_setspeed"

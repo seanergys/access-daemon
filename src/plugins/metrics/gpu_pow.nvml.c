@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <common/framework.h>
 #include <metrics/common/nvml.h>
-#include <plugins/general/metrics_central.h>
+#include <common/metrics_types.h>
 
 #define CTX_MEM    0
 #define CTX_SM     1

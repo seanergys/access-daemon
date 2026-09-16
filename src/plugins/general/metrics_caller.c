@@ -4,19 +4,19 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdarg.h>
-#include <common/types.h>
+#include <common/framework.h>
+#include <common/metrics_types.h>
 #include <common/utils/keeper.h>
-#include <plugins/general/metrics_central.h>
 
 static metrics_output_t *outputs;
 
 plug_identity()
 {
-    *tag       = "metrics_central";
+    *tag       = "metrics_caller";
     *tags_deps = NULL;
 }
 
-plug_init(_metrics_central)
+plug_init(_metrics_caller)
 {
     outputs = calloc(MAX_METRICS_NO, sizeof(metrics_output_t));
     // Keeper is a text file manager used to save default system values.

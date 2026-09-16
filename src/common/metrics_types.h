@@ -1,12 +1,13 @@
-#ifndef PLUG_METRICS_CENTRAL_H
-#define PLUG_METRICS_CENTRAL_H
+#ifndef METRICS_TYPES_H
+#define METRICS_TYPES_H
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
 #include <sched.h>
-#include <common/framework.h>
-#include <plugins/general/topology_ext.h>
+#include <common/system/time.h>
+
+// This header has the general types and the common wording of the Access Daemon
 
 #define MAX_METRICS_NO  24 //Maximum number of loadable metrics
 #define DEVS_ALL       -1
@@ -19,12 +20,15 @@ typedef enum {
 } status_t;
 
 typedef enum {
-    Metrics,
-    Actuators,
+    All = DEVS_ALL, // Useful for the Info command
+    Met,
+    Metric = Met,
+    Act,
+    Actuator = Act,
 } domain_t;
 
 typedef enum {
-    AllDevices = DEVS_ALL,
+    AllDevices = All,
     Cpu = 1,
     Thread = Cpu,
     Core,
@@ -39,11 +43,13 @@ typedef enum {
 } device_t;
 
 typedef enum {
-    AllMetrics = DEVS_ALL,
+    AllMetrics = All,
     Pow = 1,
     Pwr = Pow,
+    Power = Pow,
     Energy,
     Freq,
+    Frequency = Freq,
     AccFreq,
     FreqMem,
     AccFreqMem,
@@ -83,12 +89,15 @@ typedef struct metrics_output_s {
     const char     *metric_name;
     timestamp_t     time;
     uint64_t       *values;
+    union {
     uint32_t        values_count;
+    uint32_t        devs_count;
+    };
     const char     *units;
     device_t        granularity;
 } metrics_output_t;
 
-typedef struct request_metrics_s {
+typedef struct metrics_call_s {
     metrics_input_t   input;
     status_t          state;
     const char       *error_msg;
@@ -96,4 +105,8 @@ typedef struct request_metrics_s {
     uint8_t           outputs_count;
 } metrics_call_t;
 
-#endif // PLUG_METRICS_CENTRAL_H
+// Short-names
+typedef metrics_input_t  mets_ins_t;
+typedef metrics_output_t mets_outs_t;
+
+#endif //METRICS_TYPES_H

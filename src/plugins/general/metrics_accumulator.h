@@ -2,6 +2,6 @@
 #define PLUG_METRICS_AGGREGATOR_H
 
 #include <common/framework.h>
-#include <plugins/general/metrics_central.h>
+#include <common/metrics_types.h>
 
 #endif // PLUG_METRICS_AGGREGATOR_H
