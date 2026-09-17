@@ -50,7 +50,7 @@ static const char *envordef(const char *name, const char *fallback)
 */
 static void request_handler(seanerbus::client::Connection& conn, seanerbus::Message msg)
 {
-    request_text_t req_text = {0};
+    metrics_request_text_t req_text = {0};
 
     // Redefining types
     #define DP_TYPE_TEXT MessageTypes::HELLO_WORLD_REQ_V1

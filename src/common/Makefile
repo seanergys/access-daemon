@@ -20,6 +20,7 @@ OBJS  = \
     plugin_manager_internal.o \
     poll.o \
     string.o \
+    string_enhanced.o \
     strtable.o \
     time.o \
     bithack.o

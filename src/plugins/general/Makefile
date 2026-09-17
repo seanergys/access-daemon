@@ -34,7 +34,7 @@ all: $(OBJS)
 	$(CC) $(CC_FLAGS) -fPIC -shared -o $@ $^
 
 seanerbus.so: seanerbus.c
-	$(CC) $(CC_FLAGS) -fPIC -shared -I$(SEANERBUS_PREFIX)/include -o $@ $^ \
+	$(CC) $(CC_FLAGS) -fPIC -shared -I$(SEANERBUS_PREFIX)/include -o $@ $^ -luuid \
 	-Wl,--disable-new-dtags,-rpath,\$(SEANERBUS_PREFIX)/lib $(SEANERBUS_PREFIX)/lib/libseanerbus_c.so
 
 topology_ext.so: $(TOPO_OBJS)

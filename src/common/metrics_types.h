@@ -25,6 +25,9 @@ typedef enum {
     Metric = Met,
     Act,
     Actuator = Act,
+    Cfg, // Not included in All
+    Config = Cfg,
+    Configuration = Cfg,
 } domain_t;
 
 typedef enum {
@@ -67,14 +70,14 @@ typedef enum {
 typedef struct metrics_input_s {
     domain_t      domain;
     char          domain_name[8];
-    command_t     command;
-    char          command_name[8];
-    device_t      device;
-    char          device_name[8];
-    int32_t       device_no; // currently we only accept 1 device or 'all'
-    char          device_no_name[8];
     metric_t      metric; // metric/actuator id
     char          metric_name[32];
+    device_t      device;
+    char          device_name[16];
+    int32_t       device_no; // currently we only accept 1 device or 'all'
+    char          device_no_name[8];
+    command_t     command;
+    char          command_name[8];
     uint64_t     *values; // actuator values
     uint32_t      values_count;
 } metrics_input_t;
@@ -88,25 +91,35 @@ typedef struct metrics_output_s {
     metric_t        metric; // id
     const char     *metric_name;
     timestamp_t     time;
-    uint64_t       *values;
     union {
-    uint32_t        values_count;
-    uint32_t        devs_count;
+        uint64_t   *values;
+        void       *values_misc;
+    };
+    union {
+        uint32_t    values_count;
+        uint32_t    devs_count;
     };
     const char     *units;
     device_t        granularity;
 } metrics_output_t;
 
-typedef struct metrics_call_s {
+typedef struct metrics_request_s {
     metrics_input_t   input;
     status_t          state;
     const char       *error_msg;
     metrics_output_t *outputs; // 1 input, N outputs
     uint8_t           outputs_count;
-} metrics_call_t;
+} metrics_request_t;
+
+typedef struct request_text_s {
+    char  *input;
+    char  *output;
+} metrics_request_text_t;
 
 // Short-names
-typedef metrics_input_t  mets_ins_t;
-typedef metrics_output_t mets_outs_t;
+typedef metrics_request_text_t mets_req_text_t;
+typedef metrics_request_t      mets_req_t;
+typedef metrics_input_t        mets_ins_t;
+typedef metrics_output_t       mets_outs_t;
 
 #endif //METRICS_TYPES_H

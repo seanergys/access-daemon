@@ -5,7 +5,7 @@
 #include <plugins/general/metrics_accumulator.h>
 
 static pthread_mutex_t   lock = PTHREAD_MUTEX_INITIALIZER;
-static metrics_call_t acc; // General accumulation of metrics
+static metrics_request_t acc; // General accumulation of metrics
 
 plug_identity()
 {
@@ -19,14 +19,20 @@ plug_init(_metrics_accumulator)
     // Sharing some information with other plugins that are implementing the
     // metrics_accumulator initialization function.
     *data_alloc = &enabled;
+    return NULL;
+}
+
+plug_init_post(_metrics_accumulator)
+{
     sprintf(acc.input.domain_name , "met");
     sprintf(acc.input.metric_name , "all");
     sprintf(acc.input.device_name , "all");
     sprintf(acc.input.command_name, "get");
+    acc.input.domain    = Met;
+    acc.input.device    = All;
+    acc.input.metric    = All;
+    acc.input.device_no = All;
     acc.input.command   = GetAcc;
-    acc.input.device    = AllDevices;
-    acc.input.metric    = AllMetrics;
-    acc.input.device_no = DEVS_ALL;
     return NULL;
 }
 
@@ -42,7 +48,7 @@ plug_periodic(_metrics_accumulator)
 plug_message_receive(_metrics_call)
 {
     static __thread metrics_output_t *outs = NULL; // Returning data
-    metrics_call_t *req = (metrics_call_t *) data;
+    metrics_request_t *req = (metrics_request_t *) data;
     int dev_max, dev_min;
     int a, o;
 

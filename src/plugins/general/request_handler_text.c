@@ -51,7 +51,7 @@ char *wrdcpy(const char *string, char *dst)
     return (char *) string;
 }
 
-static char *process_text_configuration(request_text_t *req)
+static char *process_text_configuration(metrics_request_text_t *req)
 {
     char *string = req->input;
     char buffer[1024];
@@ -72,16 +72,14 @@ static int is(char *s1, const char *s2)
 
 static char *process_input_metrics_toint(metrics_input_t *input, char *arguments)
 {
-    input->device_no = (input->device_no_name[0] == 'a')? -1 : atoi(input->device_no_name);
     if      (is(input->domain_name , MET_NAME(Met)    )) { input->domain  = Met;        }
     else if (is(input->domain_name , MET_NAME(Act)    )) { input->domain  = Act;        }
     if      (is(input->command_name, MET_NAME(Get)    )) { input->command = Get;        }
     else if (is(input->command_name, MET_NAME(Set)    )) { input->command = Set;        }
     else if (is(input->command_name, MET_NAME(Info)   )) { input->command = Info;       }
-    if      (is(input->device_name , MET_NAME(All)    )) { input->device  = All; }
+    if      (is(input->device_name , MET_NAME(All)    )) { input->device  = All;        }
     else if (is(input->device_name , MET_NAME(Cpu)    )) { input->device  = Cpu;        }
     else if (is(input->device_name , MET_NAME(Socket) )) { input->device  = Socket;     }
-    else if (is(input->device_name , MET_NAME(Uncore) )) { input->device  = Uncore;     }
     else if (is(input->device_name , MET_NAME(Gpu)    )) { input->device  = Gpu;        }
     if      (is(input->metric_name , MET_NAME(All)    )) { input->metric  = All;        }
     else if (is(input->metric_name , MET_NAME(Pow)    )) { input->metric  = Pow;        }
@@ -91,10 +89,13 @@ static char *process_input_metrics_toint(metrics_input_t *input, char *arguments
     else if (is(input->metric_name , MET_NAME(AccFreq))) { input->metric  = AccFreq;    }
     else if (is(input->metric_name , MET_NAME(FreqMem))) { input->metric  = FreqMem;    }
     else if (is(input->metric_name , MET_NAME(AccFreqMem))) { input->metric = AccFreqMem; }
+    // Device number follow different rules
+    if (is(input->device_no_name, MET_NAME(All))) { input->device_no = All; }
+    else atoi(input->device_no_name);
     // TODO: ¿Arguments?
 }
 
-static char *process_output_metrics_tochar(metrics_call_t *parsed)
+static char *process_output_metrics_tochar(metrics_request_t *parsed)
 {
     int o, v, c;
 
@@ -123,9 +124,9 @@ static char *process_output_metrics_tochar(metrics_call_t *parsed)
     return output_buffer;
 }
 
-static char *process_text_metrics(request_text_t *req)
+static char *process_text_metrics(metrics_request_text_t *req)
 {
-    metrics_call_t parsed = {0};
+    metrics_request_t parsed = {0};
     const char *string = req->input;
 
     // Parsing
@@ -143,12 +144,15 @@ static char *process_text_metrics(request_text_t *req)
 
 static char *process_text(void *data)
 {
-    request_text_t *req = (request_text_t *) data;
+    metrics_request_text_t *req = (metrics_request_text_t *) data;
     const char *string = req->input;
 
-    if (strncasecmp(string, "met", 3) == 0) return process_text_metrics(req);
-    if (strncasecmp(string, "act", 3) == 0) return process_text_metrics(req);
-    if (strncasecmp(string, "cfg", 3) == 0) return process_text_configuration(req);
+    // Processing domain
+    if (strncasecmp(string, MET_NAME(Met), 3) == 0) return process_text_metrics(req);
+    if (strncasecmp(string, MET_NAME(Act), 3) == 0) return process_text_metrics(req);
+    if (strncasecmp(string, MET_NAME(All), 3) == 0) return process_text_metrics(req);
+    if (strncasecmp(string, MET_NAME(Met), 3) == 0) return process_text_configuration(req);
+    return NULL;
 }
 
 plug_message_receive(_received_request_text)

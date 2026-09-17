@@ -5,8 +5,9 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <common/framework.h>
-#include <common/metrics_types.h>
 #include <common/utils/keeper.h>
+#include <common/metrics_types.h>
+#include <common/string_enhanced.h>
 
 static metrics_output_t *outputs;
 
@@ -29,12 +30,13 @@ static char *form_message(metrics_input_t *input)
     static char msg[128] = {0};
     sprintf(msg, "%s_%s_%s_%s", input->domain_name, input->metric_name,
         input->device_name, input->command_name);
+    strtolow(msg);
     return msg;
 }
 
 static char *call_metrics_plugins(void *data)
 {
-    metrics_call_t *req = (metrics_call_t *) data;
+    metrics_request_t *req = (metrics_request_t *) data;
     char *message = form_message(&req->input);
     // Preparing returning output
     memset(outputs, 0, sizeof(metrics_output_t) * MAX_METRICS_NO);

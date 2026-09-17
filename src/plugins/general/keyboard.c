@@ -29,7 +29,7 @@ static int is(char *s1, const char *s2)
 
 static void *string_read(void *x)
 {
-    request_text_t req = {0};
+    metrics_request_text_t req = {0};
     char string[1024];
     int i;
 

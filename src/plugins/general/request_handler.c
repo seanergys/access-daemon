@@ -16,8 +16,31 @@ plug_init(_request_handler)
     return NULL;
 }
 
+static char *process_request(void *data)
+{
+    metrics_request_t *req = (metrics_request_t *) data;
+    metrics_input_t *input = &req->input;
+
+    if      (input->domain == All    ) sprintf(input->domain_name, MET_NAME(All));
+    else if (input->domain == Met    ) sprintf(input->domain_name, MET_NAME(Met));
+    else if (input->domain == Act    ) sprintf(input->domain_name, MET_NAME(Act));
+    if      (input->device == All    ) sprintf(input->device_name, MET_NAME(All));
+    else if (input->device == Cpu    ) sprintf(input->device_name, MET_NAME(Cpu));
+    else if (input->device == Socket ) sprintf(input->device_name, MET_NAME(Socket));
+    else if (input->device == Gpu    ) sprintf(input->device_name, MET_NAME(Gpu));
+    if      (input->metric == All    ) sprintf(input->metric_name, MET_NAME(All));
+    else if (input->metric == Freq   ) sprintf(input->metric_name, MET_NAME(Freq));
+    else if (input->metric == AccFreq) sprintf(input->metric_name, MET_NAME(AccFreq));
+    else if (input->metric == Energy ) sprintf(input->metric_name, MET_NAME(Energy));
+    else if (input->metric == Pow    ) sprintf(input->metric_name, MET_NAME(Pow));
+    if      (input->command == Get   ) sprintf(input->command_name, MET_NAME(Get));
+    else if (input->command == Set   ) sprintf(input->command_name, MET_NAME(Set));
+    else if (input->command == Info  ) sprintf(input->command_name, MET_NAME(Info));
+    plug_message_send("metrics_call", data);
+    return NULL;
+}
+
 plug_message_receive(_received_request)
 {
-    // More direct, no parsing needed
-    return NULL;
+    return process_request(data);
 }

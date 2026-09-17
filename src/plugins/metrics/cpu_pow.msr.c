@@ -162,7 +162,7 @@ static void copy_metadata(mets_outs_t *out, mets_outs_t *met, int cpu_min, int c
 
 static char *return_metrics(void *data, dev_ctx_t *dev)
 {
-    metrics_call_t    *req = (metrics_call_t *) data;
+    metrics_request_t *req = (metrics_request_t *) data;
     metrics_output_t  *out = &req->outputs[req->outputs_count];
     metrics_input_t   *inp = &req->input;
     uint32_t     immediate = (inp->command == GetAcc);
@@ -213,9 +213,9 @@ plug_message_receive(_met_all_all_get)
     return return_metrics(data, &devs[DEV_PKG]);
 }
 
-plug_message_receive(_met_all_all_info)
+plug_message_receive(_all_all_all_info)
 {
-    metrics_call_t   *req = (metrics_call_t *) data;
+    metrics_request_t   *req = (metrics_request_t *) data;
     metrics_output_t *out = &req->outputs[req->outputs_count];
     copy_metadata(&out[0], &devs[DEV_PP0].metrics_c[E], 0, devs[DEV_PP0].tp->cpu_count);
     copy_metadata(&out[1], &devs[DEV_PKG].metrics_c[E], 0, devs[DEV_PKG].tp->cpu_count);

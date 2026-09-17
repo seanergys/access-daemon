@@ -148,7 +148,7 @@ plug_init(_topology_ext)
 
 static char *return_metrics(void *data, metric_ctx_t *ctx, int derived)
 {
-    metrics_call_t *req = data;
+    metrics_request_t *req = data;
     metrics_output_t *out;
     uint32_t dev_min = 0, dev_max = handlers_count;
     char *error;
@@ -193,13 +193,13 @@ static char *return_metrics(void *data, metric_ctx_t *ctx, int derived)
 
 static char *return_one(void *data, uint index)
 {
-    metrics_call_t *req = data;
+    metrics_request_t *req = data;
     return return_metrics(data, &ctxs[index], req->input.command == GetAcc);
 }
 
 static char *return_all(void *data)
 {
-    metrics_call_t *req = data;
+    metrics_request_t *req = data;
     char *error;
     uint c;
     for (c = 0; c < CTXS_MAX; ++c) {

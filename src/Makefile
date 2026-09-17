@@ -8,3 +8,4 @@ clean: clean.sub-folders
 %.sub-folders:
 	@ $(MAKE) -C 'common' $* || exit
 	@ $(MAKE) -C 'plugins' $* || exit
+	@ $(MAKE) -C 'tests' $* || exit
