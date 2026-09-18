@@ -1,8 +1,9 @@
 SEA_CFLAGS  = -I $(SEANERBUS_PREFIX)/include
 SEA_LDFLAGS = -Wl,--disable-new-dtags,-rpath,\$(SEANERBUS_PREFIX)/lib $(SEANERBUS_PREFIX)/lib/libseanerbus_c.so
 
-BINS  = \
-    metrics_by_the_sea
+ifdef SEANERBUS_PREFIX
+BINS += metrics_by_the_sea
+endif
 
 all: $(BINS)
 

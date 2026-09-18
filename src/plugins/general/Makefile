@@ -11,8 +11,11 @@ OBJS  = \
     metrics_caller.so \
     request_handler.so \
     request_handler_text.so \
-    seanerbus.so \
     topology_ext.so
+
+ifdef SEANERBUS_PREFIX
+OBJS += seanerbus.so
+endif
 
 TOPO_OBJS = \
     cpuid.o \

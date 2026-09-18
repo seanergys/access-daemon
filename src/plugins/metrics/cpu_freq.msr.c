@@ -116,6 +116,8 @@ plug_init(_topology_ext)
     mets[A].metric      = AccFreq;
     mets[A].metric_name = MET_NAME(AccFreq);
     for (m = 0; m < METS_MAX; ++m) {
+        mets[m].domain      = Metric;
+        mets[m].domain_name = MET_NAME(Metric);
         mets[m].device      = Cpu;
         mets[m].device_name = MET_NAME(Cpu);
         mets[m].values      = calloc(tp->cpu_count, sizeof(uint64_t));

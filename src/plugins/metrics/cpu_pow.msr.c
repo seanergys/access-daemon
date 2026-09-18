@@ -130,6 +130,10 @@ plug_init(_topology_ext)
         devs[DEV_PP0].metrics_c[m].device_name = MET_NAME(Cpu);
     }
     for (d = 0; d < DEVS_MAX; ++d) {
+        devs[d].metrics_c[E].domain      = Metric;
+        devs[d].metrics_c[P].domain      = Metric;
+        devs[d].metrics_c[E].domain_name = MET_NAME(Metric);
+        devs[d].metrics_c[P].domain_name = MET_NAME(Metric);
         devs[d].metrics_c[E].values      = calloc(tp->cpu_count, sizeof(uint64_t));
         devs[d].metrics_c[P].values      = calloc(tp->cpu_count, sizeof(uint64_t)); // Space for immediate
         devs[d].metrics_c[E].metric      = Energy;

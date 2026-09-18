@@ -9,7 +9,7 @@
 
 // This header has the general types and the common wording of the Access Daemon
 
-#define MAX_METRICS_NO  24 //Maximum number of loadable metrics
+#define MAX_METRICS_NO  64 //Maximum number of loadable metrics
 #define DEVS_ALL       -1
 #define DEVS_MASK      -2
 #define MET_NAME(m)    #m
@@ -71,6 +71,7 @@ typedef struct metrics_s {
     status_e        state;
     const char     *error_msg;
     domain_e        domain;
+    const char     *domain_name;
     char            domain_label[8]; // Labels are spaces for inputs
     metric_e        metric;
     const char     *metric_name;

@@ -12,15 +12,15 @@
 #include <plugins/general/seanerbus.h>
 
 typedef struct {
-    sea_addr_t  *addr;
-    char         uuid_str[37];  // 36 caracteres + '\0'
-    uuid_t       uuid;
-    metric_t *met;
-    uint32_t     device_no;
+    sea_addr_t *addr;
+    char        uuid_str[37];  // 36 caracteres + '\0'
+    uuid_t      uuid;
+    metric_t    *met;
+    uint32_t    device_no;
 } uuid_full_t;
 
 static metrics_request_t  info;
-static uuid_full_t       *uuids[MAX_METRICS_NO*1024];
+static uuid_full_t       *uuids[MAX_METRICS_NO];
 static sea_conn_t        *conn;
 static sea_stat_t         st;
 static sea_err_t         *err;
@@ -52,28 +52,30 @@ plug_init(_seanerbus)
     return NULL;
 }
 
+static void print_udata(void *udata, char *label)
+{
+    uuid_full_t *uuid = udata;
+    printf("%s %s %s_%s_%s_%d\n", label, uuid->uuid_str, uuid->met->domain_name,
+        uuid->met->metric_name, uuid->met->device_name, uuid->device_no);
+}
+
 static void completed(sea_conn_t *conn, sea_stat_t st, const sea_err_t *error, void *udata)
 {
-    #if 0
-    uuid_full_t *uuid = udata;
-    printf("Completed %s_%s_%d)\n",
-        uuid->met->metric_name, uuid->met->device_name, uuid->device_no);
+    #if 1
+    print_udata(udata, "Completed");
     #endif
 }
 
 static void sent(sea_conn_t *conn, sea_stat_t status, const sea_err_t *error, void *udata)
 {
-    #if 0
-    uuid_full_t *uuid = udata;
-    if (udata == NULL) return;
-    printf("Sent %s_%s_%d)\n",
-        uuid->met->metric_name, uuid->met->device_name, uuid->device_no);
+    #if 1
+    print_udata(udata, "Sent");
     #endif
 }
 
 static void requested(sea_conn_t *conn, sea_stat_t st, const sea_msg_t *msg_in, const sea_err_t *error, void *udata)
 {
-    static metrics_request_t req;
+    static metrics_request_t req = {0};
     uint64_t values[2] = { 0, 0 };
     seanerbus_byte_view_t payload = {0};
     seanerbus_byte_view_t payback = {0};
@@ -81,6 +83,7 @@ static void requested(sea_conn_t *conn, sea_stat_t st, const sea_msg_t *msg_in, 
     uuid_full_t *uuid = udata;
     uint64_t type = 0;
 
+    print_udata(udata, "Requested");
     sea_cb(message_get_payload_type, msg_in, &type);
     sea_cb(message_get_payload, msg_in, &payload);
     //
@@ -98,7 +101,7 @@ static void requested(sea_conn_t *conn, sea_stat_t st, const sea_msg_t *msg_in, 
     values[0] = req.outputs[0].values[0];
     payback = seanerbus_byte_view_from_data(values, sizeof(uint64_t)*2);
     sea_cb(message_create, uuid->addr, GET_RES_V1, payback, 0, &msg_out);
-    sea_cb(connection_respond_to, conn, msg_in, msg_out, sent, NULL);
+    sea_cb(connection_respond_to, conn, msg_in, msg_out, sent, udata);
 cleanup:
     seanerbus_message_destroy(msg_out);
     seanerbus_error_destroy(err);
@@ -106,7 +109,7 @@ cleanup:
 
 plug_init_post(_seanerbus)
 {
-    seanerbus_name_entry_t names[3];
+    seanerbus_name_entry_t names[4];
     metric_t *met;
     char device_no[16];
     int o, d;
@@ -121,8 +124,6 @@ plug_init_post(_seanerbus)
     // Creating UUIDs
     for (o = 0; o < info.outputs_count; ++o) {
         met = &info.outputs[o];
-        printf("%s_%s (%s): %d\n",
-            met->device_name, met->metric_name, met->units, met->devs_count);
         // Allocating space for the UUIDs
         uuids[o] = calloc(met->devs_count, sizeof(uuid_full_t));
         // Creating UUIDs
@@ -133,15 +134,15 @@ plug_init_post(_seanerbus)
             uuids[o][d].met = met;
             uuids[o][d].device_no = d;
             sprintf(device_no, "%d", d);
-            printf("\t%s (%s %s %s)\n", uuids[o][d].uuid_str,
-                met->metric_name, met->device_name, device_no);
+            print_udata(&uuids[o][d], "Resolve");
             // Registering the UUIDs per end-point
             sea(address_create_from_string, uuids[o][d].uuid_str, &uuids[o][d].addr);
             sea(connection_register_endpoint, conn, uuids[o][d].addr, requested, &uuids[o][d]);
-            names[0] = seanerbus_name_entry_from_c_strings("metric", met->metric_name);
-            names[1] = seanerbus_name_entry_from_c_strings("device", met->device_name);
-            names[2] = seanerbus_name_entry_from_c_strings("device_no", device_no);
-            sea(register_resolve, conn, names, 3, uuids[o][d].addr, completed, &uuids[o][d]);
+            names[0] = seanerbus_name_entry_from_c_strings("domain", met->domain_name);
+            names[1] = seanerbus_name_entry_from_c_strings("metric", met->metric_name);
+            names[2] = seanerbus_name_entry_from_c_strings("device", met->device_name);
+            names[3] = seanerbus_name_entry_from_c_strings("device_no", device_no);
+            sea(register_resolve, conn, names, 4, uuids[o][d].addr, completed, &uuids[o][d]);
         }
     }
     sea(connection_get_fd, conn, &fd);

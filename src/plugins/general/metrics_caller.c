@@ -9,8 +9,6 @@
 #include <common/metrics_types.h>
 #include <common/string_enhanced.h>
 
-static metric_t *outputs;
-
 plug_identity()
 {
     *tag       = "metrics_caller";
@@ -19,7 +17,6 @@ plug_identity()
 
 plug_init(_metrics_caller)
 {
-    outputs = calloc(MAX_METRICS_NO, sizeof(metric_t));
     // Keeper is a text file manager used to save default system values.
     keeper_open("/tmp/seanergys-defaults.conf");
     return NULL;
@@ -39,8 +36,11 @@ static char *call_metrics_plugins(void *data)
     metrics_request_t *req = (metrics_request_t *) data;
     char *message = form_message(&req->input);
     // Preparing returning output
-    memset(outputs, 0, sizeof(metric_t) * MAX_METRICS_NO);
-    req->outputs = outputs;
+    if (req->outputs == NULL) {
+        req->outputs = calloc(MAX_METRICS_NO, sizeof(metric_t));
+    } else {
+        memset(req->outputs, 0, sizeof(metric_t) * MAX_METRICS_NO);
+    }
     req->outputs_count = 0;
     //printf("%s\n", message);
     plug_message_send(message, data);

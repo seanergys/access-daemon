@@ -106,7 +106,8 @@ static char *process_output_metrics_tochar(metrics_request_t *parsed)
         return output_buffer;
     }
     for (o = c = 0; o < parsed->outputs_count; ++o) {
-        c += sprintf(&output_buffer[c], "%s_%s (%s)",
+        c += sprintf(&output_buffer[c], "%s: %s_%s (%s)",
+            parsed->outputs[o].domain_name,
             parsed->outputs[o].device_name,
             parsed->outputs[o].metric_name,
             parsed->outputs[o].units);

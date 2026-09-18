@@ -11,13 +11,14 @@
 typedef struct metric_s {
     sea_addr_t *addr;
     char        uuid[37];
+    char        domain_label[16];
     char        device_label[16];
-    char        metric_label[32];
+    char        metric_label[16];
     char        device_no_label[8];
     uint64_t    value;
-} metric_t;
+} protomet_t;
 
-static metric_t    mets[METS_MAX*DEVS_MAX];
+static protomet_t  mets[METS_MAX*DEVS_MAX];
 static int         mets_count;
 static sea_conn_t *conn;
 static sea_stat_t  st;
@@ -51,22 +52,23 @@ static void discovered(sea_conn_t *conn, sea_stat_t st,
 static void named(sea_conn_t *conn, sea_stat_t st, const sea_name_entry_t *entries,
     size_t entries_count, const sea_err_t *error, void *udata)
 {
-    metric_t *met = udata;
+    protomet_t *met = udata;
     int e, m;
 
     for (e = 0; e < entries_count; ++e) {
+        if (is(entries[e].key.data, "domain")) strcpy(met->domain_label, entries[e].value.data);
         if (is(entries[e].key.data, "metric")) strcpy(met->metric_label, entries[e].value.data);
         if (is(entries[e].key.data, "device")) strcpy(met->device_label, entries[e].value.data);
         if (is(entries[e].key.data, "device_no")) strcpy(met->device_no_label, entries[e].value.data);
     }
-    printf("Named %s:%s:%s\n", met->metric_label, met->device_label, met->device_no_label);
+    printf("Named %s %s:%s:%s:%s\n", met->uuid, met->domain_label, met->metric_label, met->device_label, met->device_no_label);
 }
 
 static void received(sea_conn_t *conn, sea_stat_t status,
     const sea_msg_t *response, const sea_err_t *error, void *udata)
 {
     seanerbus_byte_view_t payload;
-    metric_t *met = udata;
+    protomet_t *met = udata;
     uint64_t type;
 
     sea(message_get_payload_type, response, &type);
