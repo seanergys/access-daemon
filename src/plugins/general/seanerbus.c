@@ -19,7 +19,7 @@ typedef struct {
 } uuid_full_t;
 
 static metrics_request_t  info;
-static uuid_full_t       *uuids[MAX_METRICS_NO];
+static uuid_full_t       *uuids[MAX_METRICS_NO*1024];
 static sea_conn_t        *conn;
 static sea_stat_t         st;
 static sea_err_t         *err;
@@ -37,10 +37,11 @@ plug_identity()
             st, #f, seanerbus_error_message(err)); \
     }
 
-#define sea2(f, ...) \
+#define sea_cb(f, ...) \
     if ((st = seanerbus_ ## f(__VA_ARGS__, &err)) != SEANERBUS_STATUS_OK) { \
         printf("[X] SeanerBUS error %d during %s: %s\n", \
             st, #f, seanerbus_error_message(err)); \
+        goto cleanup;
     }
 
 plug_init(_seanerbus)
@@ -52,32 +53,37 @@ plug_init(_seanerbus)
 
 static void completed(sea_conn_t *conn, sea_stat_t st, const sea_err_t *error, void *udata)
 {
-    fprintf(stderr, ".");
+    uuid_full_t *uuid = udata;
+    printf("Completed %s_%s_%d)\n",
+        uuid->met->metric_name, uuid->met->device_name, uuid->device_no);
 }
 
-static void sent(sea_conn_t *conn, sea_stat_t status, const sea_err_t *error, void *userdata)
+static void sent(sea_conn_t *conn, sea_stat_t status, const sea_err_t *error, void *udata)
 {
+    uuid_full_t *uuid = udata;
+    if (udata == NULL) return;
+    printf("Sent %s_%s_%d)\n",
+        uuid->met->metric_name, uuid->met->device_name, uuid->device_no);
 }
 
 static void requested(sea_conn_t *conn, sea_stat_t st, const sea_msg_t *msg_in, const sea_err_t *error, void *udata)
 {
-    static uint64_t fake_metric = 1;
+    static uint64_t fake_metric[2] = { 1, 0 };
     seanerbus_byte_view_t payload = {0};
     seanerbus_byte_view_t payback = {0};
     seanerbus_message_t *msg_out = NULL;
     uuid_full_t *uuid = udata;
     uint64_t type = 0;
 
-    sea2(message_get_payload_type, msg_in, &type);
-    sea2(message_get_payload, msg_in, &payload);
-    printf("Received a request %ld related with %s_%s_%d)\n", type,
-        uuid->met->metric_name, uuid->met->device_name, uuid->device_no);
+    sea_cb(message_get_payload_type, msg_in, &type);
+    sea_cb(message_get_payload, msg_in, &payload);
 
-    payback = seanerbus_byte_view_from_data(&fake_metric, sizeof(uint64_t));
-    sea2(message_create, uuid->addr, GET_RES_V1, payback, 0, &msg_out);
-    sea2(connection_respond_to, conn, msg_in, msg_out, sent, udata);
-    ++fake_metric;
-
+    payback = seanerbus_byte_view_from_data(&fake_metric, sizeof(uint64_t)*2);
+    sea_cb(message_create, uuid->addr, GET_RES_V1, payback, 0, &msg_out);
+    sea_cb(connection_respond_to, conn, msg_in, msg_out, sent, NULL);
+    // Do not send fake metrics
+    ++fake_metric[0];
+cleanup:
     seanerbus_message_destroy(msg_out);
     seanerbus_error_destroy(err);
 }
@@ -131,5 +137,6 @@ plug_init_post(_seanerbus)
 plug_poll_attend(_connection_handling)
 {
     sea(connection_handle, conn);
+    // Look if there is an error message pending
     return NULL;
 }

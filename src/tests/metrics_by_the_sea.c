@@ -71,8 +71,9 @@ static void received(sea_conn_t *conn, sea_stat_t status,
 
     sea(message_get_payload_type, response, &type);
     sea(message_get_payload, response, &payload);
-    printf("Received payload type: %d\n", type);
+    printf("Received payload type: %ld\n", type);
     met->value = (uint64_t) payload.data;
+    memcpy(&met->value, payload.data, sizeof(met->value));
 }
 
 int connection_handle_and_wait_for_key()
