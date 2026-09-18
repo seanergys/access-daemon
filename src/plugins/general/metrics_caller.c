@@ -9,7 +9,7 @@
 #include <common/metrics_types.h>
 #include <common/string_enhanced.h>
 
-static metrics_output_t *outputs;
+static metric_t *outputs;
 
 plug_identity()
 {
@@ -19,17 +19,17 @@ plug_identity()
 
 plug_init(_metrics_caller)
 {
-    outputs = calloc(MAX_METRICS_NO, sizeof(metrics_output_t));
+    outputs = calloc(MAX_METRICS_NO, sizeof(metric_t));
     // Keeper is a text file manager used to save default system values.
     keeper_open("/tmp/seanergys-defaults.conf");
     return NULL;
 }
 
-static char *form_message(metrics_input_t *input)
+static char *form_message(metric_t *input)
 {
     static char msg[128] = {0};
-    sprintf(msg, "%s_%s_%s_%s", input->domain_name, input->metric_name,
-        input->device_name, input->command_name);
+    sprintf(msg, "%s_%s_%s_%s", input->domain_label, input->metric_label,
+        input->device_label, input->command_label);
     strtolow(msg);
     return msg;
 }
@@ -39,7 +39,7 @@ static char *call_metrics_plugins(void *data)
     metrics_request_t *req = (metrics_request_t *) data;
     char *message = form_message(&req->input);
     // Preparing returning output
-    memset(outputs, 0, sizeof(metrics_output_t) * MAX_METRICS_NO);
+    memset(outputs, 0, sizeof(metric_t) * MAX_METRICS_NO);
     req->outputs = outputs;
     req->outputs_count = 0;
     //printf("%s\n", message);

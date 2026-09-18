@@ -26,7 +26,7 @@ static topology_t *tp;
 static uint64_t    base_frequency;
 static sensor_t   *registers1;
 static sensor_t   *registers2;
-static mets_outs_t mets[METS_MAX]; // Current and last Freq and AccFreq
+static metric_t mets[METS_MAX]; // Current and last Freq and AccFreq
 static int         acc_on; // Accumulator plugin is online
 
 plug_identity()
@@ -138,10 +138,10 @@ plug_init(_metrics_accumulator)
     return NULL;
 }
 
-static void copy_metadata(mets_outs_t *out, mets_outs_t *met, int cpu_min, int cpu_max)
+static void copy_metadata(metric_t *out, metric_t *met, int cpu_min, int cpu_max)
 {
     if (cpu_max == 0) { return; }
-    memcpy(out, met, sizeof(mets_outs_t));
+    memcpy(out, met, sizeof(metric_t));
     out->values       = &met->values[cpu_min];
     out->values_count = cpu_max - cpu_min;
 }
@@ -149,7 +149,7 @@ static void copy_metadata(mets_outs_t *out, mets_outs_t *met, int cpu_min, int c
 static char *return_metrics(void *data)
 {
     metrics_request_t *req = (metrics_request_t *) data;
-    metrics_output_t  *out = &req->outputs[req->outputs_count];
+    metric_t  *out = &req->outputs[req->outputs_count];
     uint32_t   accumulated = (req->input.command == GetAcc);
     uint32_t       cpu_max = tp->cpu_count;
     uint32_t       cpu_min = 0;
@@ -188,7 +188,7 @@ plug_message_receive(_met_all_all_get)
 plug_message_receive(_all_all_all_info)
 {
     metrics_request_t *req = (metrics_request_t *) data;
-    metrics_output_t  *out = &req->outputs[req->outputs_count];
+    metric_t  *out = &req->outputs[req->outputs_count];
     copy_metadata(&out[F], &mets[F], 0, tp->cpu_count);
     copy_metadata(&out[A], &mets[A], 0, tp->cpu_count * acc_on);
     req->outputs_count += 1 + acc_on;

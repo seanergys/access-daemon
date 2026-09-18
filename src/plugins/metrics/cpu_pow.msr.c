@@ -19,8 +19,8 @@
 typedef struct dev_ctx_s {
     topology_t    *tp;
     uint64_t       addr_stat;
-    mets_outs_t    metrics_c[METS_MAX]; // Current
-    mets_outs_t    metrics_l[METS_MAX]; // Last
+    metric_t    metrics_c[METS_MAX]; // Current
+    metric_t    metrics_l[METS_MAX]; // Last
 } dev_ctx_t;
 
 static dev_ctx_t   devs[DEVS_MAX]; // Devices meta-data and values
@@ -137,7 +137,7 @@ plug_init(_topology_ext)
         devs[d].metrics_c[E].metric_name = MET_NAME(Energy);
         devs[d].metrics_c[P].metric_name = MET_NAME(Power);
         devs[d].metrics_c[E].units       = "J";
-        devs[d].metrics_c[P].units       = "P";
+        devs[d].metrics_c[P].units       = "W";
         devs[d].metrics_l[E].values      = calloc(tp->cpu_count, sizeof(uint64_t));
         get (&devs[d], 0, devs[d].tp->cpu_count);
         copy(&devs[d], 0, devs[d].tp->cpu_count);
@@ -152,10 +152,10 @@ plug_init(_metrics_accumulator)
     return NULL;
 }
 
-static void copy_metadata(mets_outs_t *out, mets_outs_t *met, int cpu_min, int cpu_max)
+static void copy_metadata(metric_t *out, metric_t *met, int cpu_min, int cpu_max)
 {
     if (cpu_max == 0) { return; }
-    memcpy(out, met, sizeof(mets_outs_t));
+    memcpy(out, met, sizeof(metric_t));
     out->values       = &met->values[cpu_min];
     out->values_count = cpu_max - cpu_min;
 }
@@ -163,8 +163,8 @@ static void copy_metadata(mets_outs_t *out, mets_outs_t *met, int cpu_min, int c
 static char *return_metrics(void *data, dev_ctx_t *dev)
 {
     metrics_request_t *req = (metrics_request_t *) data;
-    metrics_output_t  *out = &req->outputs[req->outputs_count];
-    metrics_input_t   *inp = &req->input;
+    metric_t  *out = &req->outputs[req->outputs_count];
+    metric_t   *inp = &req->input;
     uint32_t     immediate = (inp->command == GetAcc);
     uint32_t       cpu_max = dev->tp->cpu_count;
     uint32_t       cpu_min = 0;
@@ -216,7 +216,7 @@ plug_message_receive(_met_all_all_get)
 plug_message_receive(_all_all_all_info)
 {
     metrics_request_t   *req = (metrics_request_t *) data;
-    metrics_output_t *out = &req->outputs[req->outputs_count];
+    metric_t *out = &req->outputs[req->outputs_count];
     copy_metadata(&out[0], &devs[DEV_PP0].metrics_c[E], 0, devs[DEV_PP0].tp->cpu_count);
     copy_metadata(&out[1], &devs[DEV_PKG].metrics_c[E], 0, devs[DEV_PKG].tp->cpu_count);
     copy_metadata(&out[2], &devs[DEV_PP0].metrics_c[P], 0, devs[DEV_PP0].tp->cpu_count * acc_on);

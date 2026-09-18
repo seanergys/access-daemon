@@ -17,7 +17,7 @@
 typedef enum {
     Ok = 0,
     Error,
-} status_t;
+} status_e;
 
 typedef enum {
     All = DEVS_ALL, // Useful for the Info command
@@ -28,7 +28,7 @@ typedef enum {
     Cfg, // Not included in All
     Config = Cfg,
     Configuration = Cfg,
-} domain_t;
+} domain_e;
 
 typedef enum {
     AllDevices = All,
@@ -43,7 +43,7 @@ typedef enum {
     Dram,
     Mem = Dram,
     Gpu,
-} device_t;
+} device_e;
 
 typedef enum {
     AllMetrics = All,
@@ -56,7 +56,7 @@ typedef enum {
     AccFreq,
     FreqMem,
     AccFreqMem,
-} metric_t;
+} metric_e;
 
 typedef enum {
     Get = 0,
@@ -65,34 +65,26 @@ typedef enum {
     Write = Set,
     GetAcc, // Gets metrics and also the derived immediates or cumulative
     Info,
-} command_t;
+} command_e;
 
-typedef struct metrics_input_s {
-    domain_t      domain;
-    char          domain_name[8];
-    metric_t      metric; // metric/actuator id
-    char          metric_name[32];
-    device_t      device;
-    char          device_name[16];
-    int32_t       device_no; // currently we only accept 1 device or 'all'
-    char          device_no_name[8];
-    command_t     command;
-    char          command_name[8];
-    uint64_t     *values; // actuator values
-    uint32_t      values_count;
-} metrics_input_t;
-
-typedef struct metrics_output_s {
-    status_t        state;
+typedef struct metrics_s {
+    status_e        state;
     const char     *error_msg;
-    device_t        device;
-    const char     *device_name;
-    int32_t         device_no;
-    metric_t        metric; // id
+    domain_e        domain;
+    char            domain_label[8]; // Labels are spaces for inputs
+    metric_e        metric;
     const char     *metric_name;
+    char            metric_label[16];
+    device_e        device;
+    const char     *device_name;
+    char            device_label[16];
+    int32_t         device_no;
+    char            device_no_label[8];
+    command_e       command;
+    char            command_label[8];
     timestamp_t     time;
     union {
-        uint64_t   *values;
+        uint64_t   *values; // You don't have to allocate the output values
         void       *values_misc;
     };
     union {
@@ -100,15 +92,15 @@ typedef struct metrics_output_s {
         uint32_t    devs_count;
     };
     const char     *units;
-    device_t        granularity;
-} metrics_output_t;
+    device_e        granularity;
+} metric_t;
 
 typedef struct metrics_request_s {
-    metrics_input_t   input;
-    status_t          state;
-    const char       *error_msg;
-    metrics_output_t *outputs; // 1 input, N outputs
-    uint8_t           outputs_count;
+    metric_t     input;
+    status_e     state; // General state
+    const char  *error_msg; // General error
+    metric_t    *outputs; // 1 input, N outputs
+    uint8_t      outputs_count;
 } metrics_request_t;
 
 typedef struct request_text_s {
@@ -119,7 +111,5 @@ typedef struct request_text_s {
 // Short-names
 typedef metrics_request_text_t mets_req_text_t;
 typedef metrics_request_t      mets_req_t;
-typedef metrics_input_t        mets_ins_t;
-typedef metrics_output_t       mets_outs_t;
 
 #endif //METRICS_TYPES_H

@@ -149,7 +149,7 @@ plug_init(_topology_ext)
 static char *return_metrics(void *data, metric_ctx_t *ctx, int derived)
 {
     metrics_request_t *req = data;
-    metrics_output_t *out;
+    metric_t *out;
     uint32_t dev_min = 0, dev_max = handlers_count;
     char *error;
     uint j;
@@ -176,7 +176,7 @@ static char *return_metrics(void *data, metric_ctx_t *ctx, int derived)
     }
     out = &req->outputs[req->outputs_count];
     for (j = 0; j < 1U + (uint) derived; ++j) {
-        out[j] = (metrics_output_t) {
+        out[j] = (metric_t) {
             .state = Ok, .device = Gpu, .device_name = MET_NAME(Gpu),
             .device_no = req->input.device_no,
             .metric = j ? ctx->derived_metric : ctx->metric,

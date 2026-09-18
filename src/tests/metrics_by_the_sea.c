@@ -11,9 +11,9 @@
 typedef struct metric_s {
     sea_addr_t *addr;
     char        uuid[37];
-    char        device_name[16];
-    char        metric_name[32];
-    char        device_no_name[8];
+    char        device_label[16];
+    char        metric_label[32];
+    char        device_no_label[8];
     uint64_t    value;
 } metric_t;
 
@@ -55,11 +55,11 @@ static void named(sea_conn_t *conn, sea_stat_t st, const sea_name_entry_t *entri
     int e, m;
 
     for (e = 0; e < entries_count; ++e) {
-        if (is(entries[e].key.data, "metric")) strcpy(met->metric_name, entries[e].value.data);
-        if (is(entries[e].key.data, "device")) strcpy(met->device_name, entries[e].value.data);
-        if (is(entries[e].key.data, "device_no")) strcpy(met->device_no_name, entries[e].value.data);
+        if (is(entries[e].key.data, "metric")) strcpy(met->metric_label, entries[e].value.data);
+        if (is(entries[e].key.data, "device")) strcpy(met->device_label, entries[e].value.data);
+        if (is(entries[e].key.data, "device_no")) strcpy(met->device_no_label, entries[e].value.data);
     }
-    printf("Named %s:%s:%s\n", met->metric_name, met->device_name, met->device_no_name);
+    printf("Named %s:%s:%s\n", met->metric_label, met->device_label, met->device_no_label);
 }
 
 static void received(sea_conn_t *conn, sea_stat_t status,
@@ -79,7 +79,6 @@ static void received(sea_conn_t *conn, sea_stat_t status,
 int connection_handle_and_wait_for_key()
 {
     char c;
-
     printf("Enter to continue...\n");
     fcntl(STDIN_FILENO, F_SETFL, O_NONBLOCK);
     while (read(STDIN_FILENO, &c, 1) != 1 || c != '\n') {
@@ -111,8 +110,8 @@ int main(int argc, char* argv[])
     // Destroys pending
     connection_handle_and_wait_for_key();
     for (m = 0; m < mets_count; ++m) {
-        printf("%s:%s:%s = %lu\n", mets[m].metric_name,
-            mets[m].device_name, mets[m].device_no_name, mets[m].value);
+        printf("%s:%s:%s = %lu\n", mets[m].metric_label,
+            mets[m].device_label, mets[m].device_no_label, mets[m].value);
     }
     seanerbus_connection_shutdown(conn, NULL);
     return 0;

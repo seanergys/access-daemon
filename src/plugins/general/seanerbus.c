@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include <stdint.h>
 #include <uuid/uuid.h>
 #include <common/framework.h>
 #include <common/metrics_types.h>
@@ -14,7 +15,7 @@ typedef struct {
     sea_addr_t  *addr;
     char         uuid_str[37];  // 36 caracteres + '\0'
     uuid_t       uuid;
-    mets_outs_t *met;
+    metric_t *met;
     uint32_t     device_no;
 } uuid_full_t;
 
@@ -41,7 +42,7 @@ plug_identity()
     if ((st = seanerbus_ ## f(__VA_ARGS__, &err)) != SEANERBUS_STATUS_OK) { \
         printf("[X] SeanerBUS error %d during %s: %s\n", \
             st, #f, seanerbus_error_message(err)); \
-        goto cleanup;
+        goto cleanup; \
     }
 
 plug_init(_seanerbus)
@@ -53,22 +54,27 @@ plug_init(_seanerbus)
 
 static void completed(sea_conn_t *conn, sea_stat_t st, const sea_err_t *error, void *udata)
 {
+    #if 0
     uuid_full_t *uuid = udata;
     printf("Completed %s_%s_%d)\n",
         uuid->met->metric_name, uuid->met->device_name, uuid->device_no);
+    #endif
 }
 
 static void sent(sea_conn_t *conn, sea_stat_t status, const sea_err_t *error, void *udata)
 {
+    #if 0
     uuid_full_t *uuid = udata;
     if (udata == NULL) return;
     printf("Sent %s_%s_%d)\n",
         uuid->met->metric_name, uuid->met->device_name, uuid->device_no);
+    #endif
 }
 
 static void requested(sea_conn_t *conn, sea_stat_t st, const sea_msg_t *msg_in, const sea_err_t *error, void *udata)
 {
-    static uint64_t fake_metric[2] = { 1, 0 };
+    static metrics_request_t req;
+    uint64_t values[2] = { 0, 0 };
     seanerbus_byte_view_t payload = {0};
     seanerbus_byte_view_t payback = {0};
     seanerbus_message_t *msg_out = NULL;
@@ -77,12 +83,22 @@ static void requested(sea_conn_t *conn, sea_stat_t st, const sea_msg_t *msg_in, 
 
     sea_cb(message_get_payload_type, msg_in, &type);
     sea_cb(message_get_payload, msg_in, &payload);
-
-    payback = seanerbus_byte_view_from_data(&fake_metric, sizeof(uint64_t)*2);
+    //
+    req.input.domain    = (type == GET_REQ_V1)? Metric: Actuator;
+    req.input.device    = uuid->met->device;
+    req.input.metric    = uuid->met->metric;
+    req.input.device_no = uuid->device_no;
+    req.input.command   = (type == GET_REQ_V1)? Get: Set;
+    plug_message_send("received_request", (void *) &req);
+    //
+    if (req.state != Ok || req.outputs_count == 0) {
+        // Something went wrong
+        goto cleanup;
+    }
+    values[0] = req.outputs[0].values[0];
+    payback = seanerbus_byte_view_from_data(values, sizeof(uint64_t)*2);
     sea_cb(message_create, uuid->addr, GET_RES_V1, payback, 0, &msg_out);
     sea_cb(connection_respond_to, conn, msg_in, msg_out, sent, NULL);
-    // Do not send fake metrics
-    ++fake_metric[0];
 cleanup:
     seanerbus_message_destroy(msg_out);
     seanerbus_error_destroy(err);
@@ -91,7 +107,7 @@ cleanup:
 plug_init_post(_seanerbus)
 {
     seanerbus_name_entry_t names[3];
-    metrics_output_t *met;
+    metric_t *met;
     char device_no[16];
     int o, d;
 

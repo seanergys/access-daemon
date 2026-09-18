@@ -24,10 +24,10 @@ plug_init(_metrics_accumulator)
 
 plug_init_post(_metrics_accumulator)
 {
-    sprintf(acc.input.domain_name , "met");
-    sprintf(acc.input.metric_name , "all");
-    sprintf(acc.input.device_name , "all");
-    sprintf(acc.input.command_name, "get");
+    sprintf(acc.input.domain_label , "met");
+    sprintf(acc.input.metric_label , "all");
+    sprintf(acc.input.device_label , "all");
+    sprintf(acc.input.command_label, "get");
     acc.input.domain    = Met;
     acc.input.device    = All;
     acc.input.metric    = All;
@@ -47,16 +47,16 @@ plug_periodic(_metrics_accumulator)
 
 plug_message_receive(_metrics_call)
 {
-    static __thread metrics_output_t *outs = NULL; // Returning data
+    static __thread metric_t *outs = NULL; // Returning data
     metrics_request_t *req = (metrics_request_t *) data;
     int dev_max, dev_min;
     int a, o;
 
     // If a new thread enters here it requires its own returning outputs.
     if (outs == NULL) {
-        outs = calloc(MAX_METRICS_NO, sizeof(metrics_output_t));
+        outs = calloc(MAX_METRICS_NO, sizeof(metric_t));
     } else {
-        memset(outs, 0, sizeof(metrics_output_t) * MAX_METRICS_NO);
+        memset(outs, 0, sizeof(metric_t) * MAX_METRICS_NO);
     }
     req->outputs = outs;
     // If it is not a Metric nor Get, let the call pipeline to continue
@@ -80,7 +80,7 @@ plug_message_receive(_metrics_call)
             dev_min = 0;
         }
         // Copying the metric information
-        memcpy(&outs[o], &acc.outputs[a], sizeof(metrics_output_t));
+        memcpy(&outs[o], &acc.outputs[a], sizeof(metric_t));
         // Getting a pointer to metrics or derived
         outs[o].values = &acc.outputs[a].values[dev_min];
         outs[o].values_count = dev_max - dev_min;

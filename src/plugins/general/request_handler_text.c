@@ -70,28 +70,28 @@ static int is(char *s1, const char *s2)
     return strncasecmp(s1, s2, strlen(s1)) == 0;
 }
 
-static char *process_input_metrics_toint(metrics_input_t *input, char *arguments)
+static char *process_input_metrics_toint(metric_t *input, char *arguments)
 {
-    if      (is(input->domain_name , MET_NAME(Met)    )) { input->domain  = Met;        }
-    else if (is(input->domain_name , MET_NAME(Act)    )) { input->domain  = Act;        }
-    if      (is(input->command_name, MET_NAME(Get)    )) { input->command = Get;        }
-    else if (is(input->command_name, MET_NAME(Set)    )) { input->command = Set;        }
-    else if (is(input->command_name, MET_NAME(Info)   )) { input->command = Info;       }
-    if      (is(input->device_name , MET_NAME(All)    )) { input->device  = All;        }
-    else if (is(input->device_name , MET_NAME(Cpu)    )) { input->device  = Cpu;        }
-    else if (is(input->device_name , MET_NAME(Socket) )) { input->device  = Socket;     }
-    else if (is(input->device_name , MET_NAME(Gpu)    )) { input->device  = Gpu;        }
-    if      (is(input->metric_name , MET_NAME(All)    )) { input->metric  = All;        }
-    else if (is(input->metric_name , MET_NAME(Pow)    )) { input->metric  = Pow;        }
-    else if (is(input->metric_name , MET_NAME(Pwr)    )) { input->metric  = Pwr;        }
-    else if (is(input->metric_name , MET_NAME(Energy) )) { input->metric  = Energy;     }
-    else if (is(input->metric_name , MET_NAME(Freq)   )) { input->metric  = Freq;       }
-    else if (is(input->metric_name , MET_NAME(AccFreq))) { input->metric  = AccFreq;    }
-    else if (is(input->metric_name , MET_NAME(FreqMem))) { input->metric  = FreqMem;    }
-    else if (is(input->metric_name , MET_NAME(AccFreqMem))) { input->metric = AccFreqMem; }
+    if      (is(input->domain_label , MET_NAME(Met)    )) { input->domain  = Met;        }
+    else if (is(input->domain_label , MET_NAME(Act)    )) { input->domain  = Act;        }
+    if      (is(input->command_label, MET_NAME(Get)    )) { input->command = Get;        }
+    else if (is(input->command_label, MET_NAME(Set)    )) { input->command = Set;        }
+    else if (is(input->command_label, MET_NAME(Info)   )) { input->command = Info;       }
+    if      (is(input->device_label , MET_NAME(All)    )) { input->device  = All;        }
+    else if (is(input->device_label , MET_NAME(Cpu)    )) { input->device  = Cpu;        }
+    else if (is(input->device_label , MET_NAME(Socket) )) { input->device  = Socket;     }
+    else if (is(input->device_label , MET_NAME(Gpu)    )) { input->device  = Gpu;        }
+    if      (is(input->metric_label , MET_NAME(All)    )) { input->metric  = All;        }
+    else if (is(input->metric_label , MET_NAME(Pow)    )) { input->metric  = Pow;        }
+    else if (is(input->metric_label , MET_NAME(Pwr)    )) { input->metric  = Pwr;        }
+    else if (is(input->metric_label , MET_NAME(Energy) )) { input->metric  = Energy;     }
+    else if (is(input->metric_label , MET_NAME(Freq)   )) { input->metric  = Freq;       }
+    else if (is(input->metric_label , MET_NAME(AccFreq))) { input->metric  = AccFreq;    }
+    else if (is(input->metric_label , MET_NAME(FreqMem))) { input->metric  = FreqMem;    }
+    else if (is(input->metric_label , MET_NAME(AccFreqMem))) { input->metric = AccFreqMem; }
     // Device number follow different rules
-    if (is(input->device_no_name, MET_NAME(All))) { input->device_no = All; }
-    else atoi(input->device_no_name);
+    if (is(input->device_no_label, MET_NAME(All))) { input->device_no = All; }
+    else atoi(input->device_no_label);
     // TODO: ¿Arguments?
 }
 
@@ -130,11 +130,11 @@ static char *process_text_metrics(metrics_request_text_t *req)
     const char *string = req->input;
 
     // Parsing
-    if (!(string = wrdcpy(string, parsed.input.domain_name   ))) return NULL;
-    if (!(string = wrdcpy(string, parsed.input.metric_name   ))) return NULL;
-    if (!(string = wrdcpy(string, parsed.input.device_name   ))) return NULL;
-    if (!(string = wrdcpy(string, parsed.input.device_no_name))) return NULL;
-    if (!(string = wrdcpy(string, parsed.input.command_name  ))) return NULL;
+    if (!(string = wrdcpy(string, parsed.input.domain_label   ))) return NULL;
+    if (!(string = wrdcpy(string, parsed.input.metric_label   ))) return NULL;
+    if (!(string = wrdcpy(string, parsed.input.device_label   ))) return NULL;
+    if (!(string = wrdcpy(string, parsed.input.device_no_label))) return NULL;
+    if (!(string = wrdcpy(string, parsed.input.command_label  ))) return NULL;
     process_input_metrics_toint(&parsed.input, (char *) string);
     plug_message_send("metrics_call", (void *) &parsed);
     // Return the metrics converted into text

@@ -6,7 +6,7 @@
 #include <management/cpupow/archs/amd17.c>
 
 typedef struct dev_ctx_s {
-    device_t     dev;
+    device_e     dev;
     const char  *dev_name;
     uint8_t      dev_cpupow; // Device of the EAR CPUPOW API
     uint32_t     devs_count;
@@ -56,7 +56,7 @@ plug_init(_topology_ext)
 static char *get_actuators(void *data, dev_ctx_t *ctx)
 {
     metrics_request_t *req = (metrics_request_t *) data;
-    metrics_input_t   *met = &req->input;
+    metric_t   *met = &req->input;
     int o       = req->outputs_count;
     int cpu_max = ctx->devs_count;
     int cpu_min = 0;
@@ -109,7 +109,7 @@ plug_message_receive(_act_all_all_get)
 static char *set_actuators(void *data, dev_ctx_t *ctx)
 {
     metrics_request_t *req    = (metrics_request_t *) data;
-    metrics_input_t   *act    = &req->input;
+    metric_t   *act    = &req->input;
     int cpu_max               = ctx->devs_count;
     int cpu_min               = 0;
     int cpu                   = 0;

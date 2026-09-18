@@ -42,7 +42,7 @@ plug_init(_topology_ext)
 static char *return_actuators_values(void *data)
 {
     metrics_request_t *req = (metrics_request_t *) data;
-    metrics_input_t   *met = &req->input;
+    metric_t   *met = &req->input;
     int o          = req->outputs_count;
     char value[64] = {0};
     int cpu_max    = tp->cpu_count;
@@ -86,7 +86,7 @@ plug_message_receive(_act_freq_cpu_set)
 {
     char freq_str[16]; // Enough for a frequency in Hz
     metrics_request_t *req = (metrics_request_t *) data;
-    metrics_input_t   *act = &req->input;
+    metric_t   *act = &req->input;
     uint32_t cpu;
 
     if (act->device_no >= tp->cpu_count || act->device_no < DEVS_ALL) {

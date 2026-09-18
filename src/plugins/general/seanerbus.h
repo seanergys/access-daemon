@@ -3,8 +3,12 @@
 
 #include <seanerbus/c/seanerbus.h>
 
-#define GET_REQ_V1 20 // Not in the C header right now
-#define GET_RES_V1 21
+#define GET_REQ_V1      SEANERBUS_PAYLOAD_GET_REQ_V1
+#define GET_RES_V1      SEANERBUS_PAYLOAD_GET_RES_V1
+#define SET_REQ_V1      SEANERBUS_PAYLOAD_SET_REQ_V1
+#define SET_RES_V1      0
+#define GET_RES_V1_SIZE 16
+#define SET_RES_V1_SIZE 0
 
 // Short names
 typedef seanerbus_name_entry_t sea_name_entry_t;
