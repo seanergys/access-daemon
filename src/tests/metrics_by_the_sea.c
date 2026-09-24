@@ -56,10 +56,10 @@ static void named(sea_conn_t *conn, sea_stat_t st, const sea_name_entry_t *entri
     int e, m;
 
     for (e = 0; e < entries_count; ++e) {
-        if (is(entries[e].key.data, "domain")) strcpy(met->domain_label, entries[e].value.data);
-        if (is(entries[e].key.data, "metric")) strcpy(met->metric_label, entries[e].value.data);
-        if (is(entries[e].key.data, "device")) strcpy(met->device_label, entries[e].value.data);
-        if (is(entries[e].key.data, "device_no")) strcpy(met->device_no_label, entries[e].value.data);
+        if (is(entries[e].key.data, "Domain")) strcpy(met->domain_label, entries[e].value.data);
+        if (is(entries[e].key.data, "Metric")) strcpy(met->metric_label, entries[e].value.data);
+        if (is(entries[e].key.data, "Device")) strcpy(met->device_label, entries[e].value.data);
+        if (is(entries[e].key.data, "Device_no")) strcpy(met->device_no_label, entries[e].value.data);
     }
     printf("Named %s %s:%s:%s:%s\n", met->uuid, met->domain_label, met->metric_label, met->device_label, met->device_no_label);
 }
@@ -74,11 +74,13 @@ static void received(sea_conn_t *conn, sea_stat_t status,
     sea(message_get_payload_type, response, &type);
     sea(message_get_payload, response, &payload);
     printf("Received payload type: %ld\n", type);
-    met->value = (uint64_t) payload.data;
-    memcpy(&met->value, payload.data, sizeof(met->value));
+    if (payload.size > 0) {
+        met->value = (uint64_t) payload.data;
+        memcpy(&met->value, payload.data, sizeof(met->value));
+    }
 }
 
-int connection_handle_and_wait_for_key()
+void connection_handle_and_wait_for_key()
 {
     char c;
     printf("Enter to continue...\n");
@@ -93,28 +95,42 @@ int main(int argc, char* argv[])
     char *address = SEA_LOCAL_ADDRESS;
     seanerbus_message_t *request = NULL;
     seanerbus_name_entry_t names[3];
+    uint64_t value[2];
     int m;
 
+    // Connecting to SeanerBUS
     sea(connection_create, address, address, &conn);
-    names[0] = seanerbus_name_entry_from_c_strings("metric", "*");
+    // Looking for all Metrics and Actuators available
+    names[0] = seanerbus_name_entry_from_c_strings("Domain", "*");
     sea(resolve, conn, names, 1, discovered, &mets[0]);
     connection_handle_and_wait_for_key();
     for (m = 0; m < mets_count; ++m) {
         sea(reverse_resolve, conn, mets[m].addr, named, &mets[m]);
     }
     connection_handle_and_wait_for_key();
+    // Requesting values for all Metrics and Actuators
     for (m = 0; m < mets_count; ++m) {
         sea(message_create, mets[m].addr, GET_REQ_V1,
             seanerbus_byte_view_from_data(NULL, 0), 0, &request);
         sea(connection_request, conn, request, received, &mets[m]);
         seanerbus_message_destroy(request);
     }
-    // Destroys pending
     connection_handle_and_wait_for_key();
     for (m = 0; m < mets_count; ++m) {
-        printf("%s:%s:%s = %lu\n", mets[m].metric_label,
-            mets[m].device_label, mets[m].device_no_label, mets[m].value);
+        printf("%d:%s:%s:%s:%s = %lu\n", m, mets[m].domain_label,
+            mets[m].metric_label, mets[m].device_label, mets[m].device_no_label,
+            mets[m].value);
     }
+    // Trying to set some actuator (we know the last one is an actuator)
+#if 0
+    value[0] = 180;
+    sea(message_create, mets[mets_count-1].addr, SEANERBUS_PAYLOAD_SET_REQ_V1,
+        seanerbus_byte_view_from_data(&value, sizeof(uint64_t)), 0, &request);
+    sea(connection_request, conn, request, received, &mets[mets_count-1]);
+    seanerbus_message_destroy(request);
+    connection_handle_and_wait_for_key();
+#endif
+    // Closing
     seanerbus_connection_shutdown(conn, NULL);
     return 0;
 }

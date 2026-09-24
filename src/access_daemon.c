@@ -7,8 +7,6 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  **************************************************************************/
-
-// #define SHOW_DEBUGS 1
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,22 +24,17 @@ int main(int argc, char *argv[])
 {
     struct sigaction sa = {0};
     struct rlimit rl = {0};
-
-    // Signal handling
+    // Signal handling to control the process flux when exitting
     memset(&sa, 0, sizeof(sa));
     sa.sa_sigaction = handle_signal;
     sa.sa_flags     = SA_SIGINFO;
-    if (sigaction(SIGINT , &sa, NULL) == -1) { 
-        error("SIGINT"); return 1;
-    }
-    if (sigaction(SIGTERM, &sa, NULL) == -1) {
-        error("SIGTERM"); return 1;
-    }
-    // Open file limits
+    if (sigaction(SIGINT , &sa, NULL) == -1) { error("SIGINT"); return 1; }
+    if (sigaction(SIGTERM, &sa, NULL) == -1) { error("SIGTERM"); return 1; }
+    // Increasing the maximum file descriptors that can be opened
     getrlimit(RLIMIT_NOFILE, &rl);
     rl.rlim_cur = rl.rlim_max;
     setrlimit(RLIMIT_NOFILE, &rl);
-    // Framework control passing
+    // The framework takes the control
     plugin_manager_main(argc, argv);
     plugin_manager_wait();
     return 0;

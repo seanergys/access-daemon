@@ -7,6 +7,7 @@
 #define plug_init              declr_up_action_init      // (void **data_alloc, void *data)
 #define plug_init_post         declr_up_action_init_post // (void *data)
 #define plug_periodic          declr_up_action_periodic  // (void *data)
+#define plug_exit              declr_up_action_close     //
 #define plug_message_receive   declr_up_message_receive  // (void *data)
 #define plug_poll_attend       declr_up_poll_attend      // (cchar *tag_fd, struct pollfd *pfd)
 

@@ -15,12 +15,15 @@ typedef struct {
     sea_addr_t *addr;
     char        uuid_str[37];  // 36 caracteres + '\0'
     uuid_t      uuid;
-    metric_t    *met;
+    metric_t   *met;
     uint32_t    device_no;
+    int         registered;
 } uuid_full_t;
 
+static pthread_mutex_t    lock_conn = PTHREAD_MUTEX_INITIALIZER;
 static metrics_request_t  info;
 static uuid_full_t       *uuids[MAX_METRICS_NO];
+static int                uuids_count;
 static sea_conn_t        *conn;
 static sea_stat_t         st;
 static sea_err_t         *err;
@@ -55,15 +58,26 @@ plug_init(_seanerbus)
 static void print_udata(void *udata, char *label)
 {
     uuid_full_t *uuid = udata;
-    printf("%s %s %s_%s_%s_%d\n", label, uuid->uuid_str, uuid->met->domain_name,
+    printf("%d %s %s %s_%s_%s_%d\n", gettid(), label, uuid->uuid_str, uuid->met->domain_name,
         uuid->met->metric_name, uuid->met->device_name, uuid->device_no);
 }
 
-static void completed(sea_conn_t *conn, sea_stat_t st, const sea_err_t *error, void *udata)
+static void registered(sea_conn_t *conn, sea_stat_t st, const sea_err_t *error, void *udata)
 {
+    uuid_full_t *uuid = udata;
+    if (uuid != NULL) {
+        uuid->registered = (st == SEANERBUS_STATUS_OK);
+    }
     #if 1
-    print_udata(udata, "Completed");
+    print_udata(udata, "Registered");
     #endif
+}
+
+static void unregistered(sea_conn_t *conn, sea_stat_t st, const sea_err_t *error, void *udata)
+{
+#if 1
+    print_udata(udata, "Unregistered");
+#endif
 }
 
 static void sent(sea_conn_t *conn, sea_stat_t status, const sea_err_t *error, void *udata)
@@ -75,8 +89,10 @@ static void sent(sea_conn_t *conn, sea_stat_t status, const sea_err_t *error, vo
 
 static void requested(sea_conn_t *conn, sea_stat_t st, const sea_msg_t *msg_in, const sea_err_t *error, void *udata)
 {
-    static metrics_request_t req = {0};
-    uint64_t values[2] = { 0, 0 };
+    // We don't know how many threads SeanerBUS has, therefore the 'req' has to
+    // be kept in the thread local storage.
+    static __thread metrics_request_t req = {0};
+    uint64_t values[2] = { 0, 0 }; // 1 by 1
     seanerbus_byte_view_t payload = {0};
     seanerbus_byte_view_t payback = {0};
     seanerbus_message_t *msg_out = NULL;
@@ -86,20 +102,25 @@ static void requested(sea_conn_t *conn, sea_stat_t st, const sea_msg_t *msg_in, 
     print_udata(udata, "Requested");
     sea_cb(message_get_payload_type, msg_in, &type);
     sea_cb(message_get_payload, msg_in, &payload);
-    //
-    req.input.domain    = (type == GET_REQ_V1)? Metric: Actuator;
+    // Converting the SBus request into AD internal format
+    req.input.domain    = uuid->met->domain;
     req.input.device    = uuid->met->device;
     req.input.metric    = uuid->met->metric;
     req.input.device_no = uuid->device_no;
-    req.input.command   = (type == GET_REQ_V1)? Get: Set;
+    req.input.command   = (type == SET_REQ_V1)? Set: Get;
+    req.input.values    = (type == SET_REQ_V1)? (uint64_t *) payload.data: NULL;
+    // Sending the request to the plugins below
     plug_message_send("received_request", (void *) &req);
-    //
     if (req.state != Ok || req.outputs_count == 0) {
         // Something went wrong
         goto cleanup;
     }
-    values[0] = req.outputs[0].values[0];
-    payback = seanerbus_byte_view_from_data(values, sizeof(uint64_t)*2);
+    if (type == GET_REQ_V1) {
+        values[0] = req.outputs[0].values[0];
+        payback = seanerbus_byte_view_from_data(values, sizeof(uint64_t)*2);
+    } else {
+        payback = seanerbus_byte_view_from_data(NULL, 0);
+    }
     sea_cb(message_create, uuid->addr, GET_RES_V1, payback, 0, &msg_out);
     sea_cb(connection_respond_to, conn, msg_in, msg_out, sent, udata);
 cleanup:
@@ -114,6 +135,7 @@ plug_init_post(_seanerbus)
     char device_no[16];
     int o, d;
 
+    printf("%d:plug_init_post\n", gettid());
     info.input.domain    = All;
     info.input.device    = All;
     info.input.metric    = All;
@@ -138,11 +160,13 @@ plug_init_post(_seanerbus)
             // Registering the UUIDs per end-point
             sea(address_create_from_string, uuids[o][d].uuid_str, &uuids[o][d].addr);
             sea(connection_register_endpoint, conn, uuids[o][d].addr, requested, &uuids[o][d]);
-            names[0] = seanerbus_name_entry_from_c_strings("domain", met->domain_name);
-            names[1] = seanerbus_name_entry_from_c_strings("metric", met->metric_name);
-            names[2] = seanerbus_name_entry_from_c_strings("device", met->device_name);
-            names[3] = seanerbus_name_entry_from_c_strings("device_no", device_no);
-            sea(register_resolve, conn, names, 4, uuids[o][d].addr, completed, &uuids[o][d]);
+            // TODO: standarize names of keys and values
+            //const char *metact = (met->domain == Metric)? "Metric": "Actuator";
+            names[0] = seanerbus_name_entry_from_c_strings("Domain", met->domain_name);
+            names[1] = seanerbus_name_entry_from_c_strings("Metric", met->metric_name);
+            names[2] = seanerbus_name_entry_from_c_strings("Device", met->device_name);
+            names[3] = seanerbus_name_entry_from_c_strings("Device_no", device_no);
+            sea(register_resolve, conn, names, 4, uuids[o][d].addr, registered, &uuids[o][d]);
         }
     }
     sea(connection_get_fd, conn, &fd);
@@ -153,7 +177,39 @@ plug_init_post(_seanerbus)
 
 plug_poll_attend(_connection_handling)
 {
+    while (pthread_mutex_trylock(&lock_conn));
+    // Check connection
     sea(connection_handle, conn);
-    // Look if there is an error message pending
+    pthread_mutex_unlock(&lock_conn);
+    return NULL;
+}
+
+plug_exit()
+{
+    timestamp_t t1;
+    int o, d;
+
+    seanerbus_error_destroy(err);
+    for (o = 0; o < info.outputs_count; ++o) {
+    for (d = 0; d < info.outputs[o].devs_count; ++d) {
+        if (uuids[o][d].registered) {
+            seanerbus_unregister_resolve(conn, uuids[o][d].addr, unregistered, &uuids[o][d], NULL);
+        }
+    }}
+    // While pending addresses to unregister (and under the timeout of 2 seconds)
+    timestamp_get(&t1);
+    for (o = 0; o < info.outputs_count; ++o) {
+    for (d = 0; d < info.outputs[o].devs_count; ++d) {
+        while (!uuids[o][d].registered && timestamp_diffnow(&t1, TIME_SECS) < 2LLU);
+    }}
+    // Shutting down
+    while (pthread_mutex_trylock(&lock_conn));
+    seanerbus_connection_shutdown(conn, NULL);
+    seanerbus_connection_destroy(conn);
+    for (o = 0; o < uuids_count; ++o) {
+    for (d = 0; d < info.outputs[o].devs_count; ++d) {
+        seanerbus_address_destroy(uuids[o][d].addr);
+    }}
+    pthread_mutex_unlock(&lock_conn);
     return NULL;
 }

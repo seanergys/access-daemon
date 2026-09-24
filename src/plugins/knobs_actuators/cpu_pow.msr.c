@@ -15,6 +15,8 @@ typedef struct dev_ctx_s {
 static topology_t      *tp;
 static mgt_cpupow_ops_t ops;
 static dev_ctx_t        ctxs[CPUPOW_DOMAINS]; // We are using only 2
+static pthread_mutex_t  lock = PTHREAD_MUTEX_INITIALIZER;
+
 
 plug_identity()
 {
@@ -46,8 +48,8 @@ plug_init(_topology_ext)
     for (i = 0; i < CPUPOW_DOMAINS; ++i) {
         ctxs[i].met.domain      = Actuator;
         ctxs[i].met.domain_name = MET_NAME(Actuator);
-        ctxs[i].met.metric      = Pow;
-        ctxs[i].met.metric_name = MET_NAME(Pow);
+        ctxs[i].met.metric      = Power;
+        ctxs[i].met.metric_name = MET_NAME(Power);
         ctxs[i].met.units       = "W";
         ctxs[i].met.granularity = ctxs[i].met.device;
         ctxs[i].met.values      = calloc(ctxs[i].met.devs_count, sizeof(uint64_t));
@@ -57,15 +59,16 @@ plug_init(_topology_ext)
     return NULL;
 }
 
-static void copy_metadata(metric_t *out, metric_t *met, int cpu_min, int cpu_max)
+static void act_copy(metric_t *out, metric_t *act, uint64_t *copy, int cpu_min, int cpu_max)
 {
-    if (cpu_max == 0) { return; }
-    memcpy(out, met, sizeof(metric_t));
-    out->values       = &met->values[cpu_min];
-    out->values_count = cpu_max - cpu_min;
+    if (cpu_max == 0) return;
+    memcpy(out, act, sizeof(metric_t)), out->values = NULL; // Meta-data only
+    out->values_count = cpu_max - cpu_min; // #Values/devices
+    if ((out->values = copy) == NULL) return; // The caller does not want values
+    memcpy(copy, &act->values[cpu_min], sizeof(uint64_t)*out->values_count);
 }
 
-static char *get_actuators(void *data, dev_ctx_t *ctx)
+static char *acts_read(void *data, dev_ctx_t *ctx, uint64_t *copy)
 {
     metrics_request_t *req = (metrics_request_t *) data;
     metric_t          *inp = &req->input;
@@ -79,39 +82,52 @@ static char *get_actuators(void *data, dev_ctx_t *ctx)
         cpu_max = inp->device_no + 1;
         cpu_min = inp->device_no;
     }
+    // Reading the values
+    while (pthread_mutex_trylock(&lock));
     ops.powercap_get(ctx->dev_cpupow, (uint *) ctx->temporal_values);
     for (cpu = cpu_min; cpu < cpu_max; ++cpu) {
         ctx->met.values[cpu] = (uint64_t) ctx->temporal_values[cpu];
     }
-    // Returning metric
-    copy_metadata(&req->outputs[o], &ctx->met, cpu_min, cpu_max);
+    // Copying metric
+    act_copy(&req->outputs[o], &ctx->met, &copy[cpu_min], cpu_min, cpu_max);
+    pthread_mutex_unlock(&lock);
     req->outputs_count++;
     return NULL;
 }
 
+static char *acts_return(void *data, uint dev)
+{
+    static __thread uint64_t *copy[CPUPOW_DOMAINS] = {0};
+    // Each thread here will have its own copy of values.
+    if (copy[dev] == NULL) {
+        copy[dev] = calloc(ctxs[dev].met.devs_count, sizeof(uint64_t));
+    }
+    return acts_read(data, &ctxs[dev], copy[dev]);
+}
+
 plug_message_receive(_act_pow_socket_get)
 {
-    return get_actuators(data, &ctxs[CPUPOW_SOCKET]);
+    return acts_return(data, CPUPOW_SOCKET);
 }
 
 plug_message_receive(_act_pow_cpu_get)
 {
-    return get_actuators(data, &ctxs[CPUPOW_CORE]);
+    return acts_return(data, CPUPOW_CORE);
 }
 
 plug_message_receive(_act_pow_all_get)
 {
-    get_actuators(data, &ctxs[CPUPOW_SOCKET]);
-    return get_actuators(data, &ctxs[CPUPOW_CORE]);
+    acts_return(data, CPUPOW_SOCKET);
+    return acts_return(data, CPUPOW_CORE);
 }
 
 plug_message_receive(_act_all_all_get)
 {
-    get_actuators(data, &ctxs[CPUPOW_SOCKET]);
-    return get_actuators(data, &ctxs[CPUPOW_CORE]);
+    acts_return(data, CPUPOW_SOCKET);
+    return acts_return(data, CPUPOW_CORE);
 }
 
-static char *set_actuators(void *data, dev_ctx_t *ctx)
+static char *acts_write(void *data, dev_ctx_t *ctx)
 {
     metrics_request_t *req = (metrics_request_t *) data;
     metric_t          *act = &req->input;
@@ -150,19 +166,21 @@ static char *set_actuators(void *data, dev_ctx_t *ctx)
     // If received 'all devices', but multiple values, we write them in order
     for (cpu = cpu_min; cpu < cpu_max; ++cpu) {
         ctx->temporal_values[cpu] = (uint32_t) act->values[cpu];
+        printf("ops.powercap_set(%d, %u)\n", cpu, (uint32_t) act->values[cpu]);
     }
-    ops.powercap_set(ctx->dev_cpupow, (uint *) ctx->temporal_values);
+    // Disabled because I don't want power changes in my Laptop
+    //ops.powercap_set(ctx->dev_cpupow, (uint *) ctx->temporal_values);
     return NULL;
 }
 
 plug_message_receive(_act_pow_socket_set)
 {
-    return set_actuators(data, &ctxs[CPUPOW_SOCKET]);
+    return acts_write(data, &ctxs[CPUPOW_SOCKET]);
 }
 
 plug_message_receive(_act_pow_cpu_set)
 {
-    return set_actuators(data, &ctxs[CPUPOW_CORE]);
+    return acts_write(data, &ctxs[CPUPOW_CORE]);
 }
 
 plug_message_receive(_act_pow_socket_reset)
@@ -182,8 +200,8 @@ plug_message_receive(_all_all_all_info)
 {
     metrics_request_t *req = (metrics_request_t *) data;
     metric_t *out = &req->outputs[req->outputs_count];
-    copy_metadata(&out[0], &ctxs[CPUPOW_CORE].met, 0, ctxs[CPUPOW_CORE].met.devs_count);
-    copy_metadata(&out[1], &ctxs[CPUPOW_SOCKET].met, 0, ctxs[CPUPOW_SOCKET].met.devs_count);
+    act_copy(&out[0], &ctxs[CPUPOW_CORE  ].met, NULL, 0, ctxs[CPUPOW_CORE].met.devs_count);
+    act_copy(&out[1], &ctxs[CPUPOW_SOCKET].met, NULL, 0, ctxs[CPUPOW_SOCKET].met.devs_count);
     req->outputs_count += 2;
     return NULL;
 }

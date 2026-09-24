@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 #include <common/framework.h>
 #include <common/ear_extensions.h>
 #include <common/math_operations.h>
@@ -17,18 +18,19 @@
 #define P        1 // Index 1 is Power (derived)
 
 typedef struct dev_ctx_s {
-    topology_t    *tp;
-    uint64_t       addr_stat;
-    metric_t    metrics_c[METS_MAX]; // Current
-    metric_t    metrics_l[METS_MAX]; // Last
+    topology_t *tp;
+    uint64_t    addr_stat;
+    metric_t    mets2[METS_MAX]; // Current
+    metric_t    mets1[METS_MAX]; // Last
 } dev_ctx_t;
 
-static dev_ctx_t   devs[DEVS_MAX]; // Devices meta-data and values
-static topology_t *tp;
-static topology_t *tp_socket;
-static uint64_t    power_unit;
-static double      units;
-static int         acc_on; // Accumulator plugin is online
+static topology_t      *tp;
+static topology_t      *tp_socket;
+static dev_ctx_t        devs[DEVS_MAX]; // Devices meta-data and values
+static pthread_mutex_t  lock = PTHREAD_MUTEX_INITIALIZER;
+static uint64_t         power_unit;
+static double           units;
+static int              acc_on; // Accumulator plugin is online
 
 plug_identity()
 {
@@ -36,7 +38,7 @@ plug_identity()
     *tags_deps = "!topology_ext";
 }
 
-static void get(dev_ctx_t *dev, uint32_t dev_min, uint32_t dev_max)
+static void dev_read(dev_ctx_t *dev, uint32_t dev_min, uint32_t dev_max)
 {
     uint64_t sensor;
     uint i;
@@ -44,15 +46,15 @@ static void get(dev_ctx_t *dev, uint32_t dev_min, uint32_t dev_max)
     if (dev->addr_stat == 0x000) {
         return;
     }
-    timestamp_get(&dev->metrics_c[E].time);
+    timestamp_get(&dev->mets2[E].time);
     for (i = dev_min; i < dev_max; i++) {
         // TODO: Control failed states
         msr_read(dev->tp->cpus[i].id, &sensor, sizeof(uint64_t), dev->addr_stat);
-        dev->metrics_c[E].values[i] = (uint64_t) (((double) getbits64(sensor, 31, 0)) * units);
+        dev->mets2[E].values[i] = (uint64_t) (((double) getbits64(sensor, 31, 0)) * units);
     }
 }
 
-static void imm(dev_ctx_t *dev, uint32_t dev_min, uint32_t dev_max)
+static void dev_imm(dev_ctx_t *dev, uint32_t dev_min, uint32_t dev_max)
 {
     double secs = 0.0;
     double diff = 0.0;
@@ -60,24 +62,25 @@ static void imm(dev_ctx_t *dev, uint32_t dev_min, uint32_t dev_max)
 
     // Seconds since last all. Is only required to convert from energy
     // accumulation to immediate power value.
-    if (timestamp_is_zero(&dev->metrics_l[E].time)) {
+    if (timestamp_is_zero(&dev->mets1[E].time)) {
         return;
     }
-    secs = timestamp_fdiff(&dev->metrics_c[E].time, &dev->metrics_l[E].time, TIME_SECS, TIME_MSECS);
+    secs = timestamp_fdiff(&dev->mets2[E].time, &dev->mets1[E].time, TIME_SECS, TIME_MSECS);
     // Given this is an accumulative register, as is the energy concept, we have
     // to make the difference between the current sample and the last one, and
     // divide by the seconds passed to get the power value.
     for (i = dev_min; i < dev_max; i++) {
-        diff = (double) (dev->metrics_c[E].values[i] - dev->metrics_l[E].values[i]);
-        dev->metrics_c[P].values[i] = (uint64_t) ceil(diff / secs);
+        diff = (double) (dev->mets2[E].values[i] - dev->mets1[E].values[i]);
+        dev->mets2[P].values[i] = (uint64_t) ceil(diff / secs);
     }
 }
 
-static void copy(dev_ctx_t *dev, uint32_t dev_min, uint32_t dev_max)
+static void dev_copy(dev_ctx_t *dev, uint32_t dev_min, uint32_t dev_max)
 {
     // Saving last values to convert to immediate
-    memcpy(&dev->metrics_l[E].values[dev_min], &dev->metrics_c[E].values[dev_min], sizeof(uint64_t) * (dev_max - dev_min));
-    dev->metrics_l[E].time = dev->metrics_c[E].time;
+    memcpy(&dev->mets1[E].values[dev_min], &dev->mets2[E].values[dev_min],
+        sizeof(uint64_t) * (dev_max - dev_min));
+    dev->mets1[E].time = dev->mets2[E].time;
 }
 
 plug_init(_topology_ext)
@@ -124,27 +127,29 @@ plug_init(_topology_ext)
     units = pow(0.5, (double) getbits64(res, 12, 8));
     // Allocatiion and first readings
     for (m = 0; m < METS_MAX; ++m) {
-        devs[DEV_PKG].metrics_c[m].device      = Socket;
-        devs[DEV_PP0].metrics_c[m].device      = Cpu;
-        devs[DEV_PKG].metrics_c[m].device_name = MET_NAME(Socket);
-        devs[DEV_PP0].metrics_c[m].device_name = MET_NAME(Cpu);
+        devs[DEV_PKG].mets2[m].device       = Socket;
+        devs[DEV_PP0].mets2[m].device       = Cpu;
+        devs[DEV_PKG].mets2[m].device_name  = MET_NAME(Socket);
+        devs[DEV_PP0].mets2[m].device_name  = MET_NAME(Cpu);
+        devs[DEV_PKG].mets2[m].values_count = tp_socket->cpu_count;
+        devs[DEV_PP0].mets2[m].values_count = tp->cpu_count;
     }
     for (d = 0; d < DEVS_MAX; ++d) {
-        devs[d].metrics_c[E].domain      = Metric;
-        devs[d].metrics_c[P].domain      = Metric;
-        devs[d].metrics_c[E].domain_name = MET_NAME(Metric);
-        devs[d].metrics_c[P].domain_name = MET_NAME(Metric);
-        devs[d].metrics_c[E].values      = calloc(tp->cpu_count, sizeof(uint64_t));
-        devs[d].metrics_c[P].values      = calloc(tp->cpu_count, sizeof(uint64_t)); // Space for immediate
-        devs[d].metrics_c[E].metric      = Energy;
-        devs[d].metrics_c[P].metric      = Power;
-        devs[d].metrics_c[E].metric_name = MET_NAME(Energy);
-        devs[d].metrics_c[P].metric_name = MET_NAME(Power);
-        devs[d].metrics_c[E].units       = "J";
-        devs[d].metrics_c[P].units       = "W";
-        devs[d].metrics_l[E].values      = calloc(tp->cpu_count, sizeof(uint64_t));
-        get (&devs[d], 0, devs[d].tp->cpu_count);
-        copy(&devs[d], 0, devs[d].tp->cpu_count);
+        devs[d].mets2[E].domain      = Metric;
+        devs[d].mets2[P].domain      = Metric;
+        devs[d].mets2[E].domain_name = MET_NAME(Metric);
+        devs[d].mets2[P].domain_name = MET_NAME(Metric);
+        devs[d].mets2[E].values      = calloc(tp->cpu_count, sizeof(uint64_t));
+        devs[d].mets2[P].values      = calloc(tp->cpu_count, sizeof(uint64_t)); // Space for immediate
+        devs[d].mets1[E].values      = calloc(tp->cpu_count, sizeof(uint64_t)); // Last energies read
+        devs[d].mets2[E].metric      = Energy;
+        devs[d].mets2[P].metric      = Power;
+        devs[d].mets2[E].metric_name = MET_NAME(Energy);
+        devs[d].mets2[P].metric_name = MET_NAME(Power);
+        devs[d].mets2[E].units       = "J";
+        devs[d].mets2[P].units       = "W";
+        dev_read(&devs[d], 0, devs[d].tp->cpu_count);
+        dev_copy(&devs[d], 0, devs[d].tp->cpu_count);
     }
     return NULL;
 }
@@ -156,19 +161,20 @@ plug_init(_metrics_accumulator)
     return NULL;
 }
 
-static void copy_metadata(metric_t *out, metric_t *met, int cpu_min, int cpu_max)
+static void met_copy(metric_t *out, metric_t *met, uint64_t *copy, int cpu_min, int cpu_max)
 {
-    if (cpu_max == 0) { return; }
-    memcpy(out, met, sizeof(metric_t));
-    out->values       = &met->values[cpu_min];
-    out->values_count = cpu_max - cpu_min;
+    if (cpu_max == 0) return;
+    memcpy(out, met, sizeof(metric_t)), out->values = NULL; // Meta-data only
+    out->values_count = cpu_max - cpu_min; // #Values/devices
+    if ((out->values = copy) == NULL) return; // The caller does not want values
+    memcpy(copy, &met->values[cpu_min], sizeof(uint64_t)*out->values_count);
 }
 
-static char *return_metrics(void *data, dev_ctx_t *dev)
+static char *mets_read(void *data, dev_ctx_t *dev, uint64_t *copy)
 {
     metrics_request_t *req = (metrics_request_t *) data;
-    metric_t  *out = &req->outputs[req->outputs_count];
-    metric_t   *inp = &req->input;
+    metric_t          *inp = &req->input;
+    metric_t          *out = &req->outputs[req->outputs_count];
     uint32_t     immediate = (inp->command == GetAcc);
     uint32_t       cpu_max = dev->tp->cpu_count;
     uint32_t       cpu_min = 0;
@@ -185,46 +191,58 @@ static char *return_metrics(void *data, dev_ctx_t *dev)
     // power is only offered when accumulation plugin is enabled, which only
     // asks for all devices in regular periods of time and does not let others
     // from reading values, this plugin does not have potential dangers.
-    get (dev, cpu_min, cpu_max);
-    imm (dev, cpu_min, cpu_max);
-    copy(dev, cpu_min, cpu_max);
+    while (pthread_mutex_trylock(&lock));
+    dev_read(dev, cpu_min, cpu_max);
+    dev_imm (dev, cpu_min, cpu_max);
+    dev_copy(dev, cpu_min, cpu_max);
     // Returning metric
-    copy_metadata(&out[E], &dev->metrics_c[E], cpu_min, cpu_max);
-    copy_metadata(&out[P], &dev->metrics_c[P], cpu_min, cpu_max * immediate);
+    met_copy(&out[E], &dev->mets2[E], &copy[cpu_min], cpu_min, cpu_max);
+    met_copy(&out[P], &dev->mets2[P], &copy[cpu_max], cpu_min, cpu_max * immediate);
     req->outputs_count += 1 + immediate;
+    pthread_mutex_unlock(&lock);
     return NULL;
+}
+
+static char *mets_return(void *data, uint dev)
+{
+    static __thread uint64_t *copy[DEVS_MAX] = {0};
+    // Each thread here will have its own copy of values.
+    if (copy[dev] == NULL) {
+        copy[dev] = calloc(devs[dev].tp->cpu_count, sizeof(uint64_t)*METS_MAX);
+    }
+    return mets_read(data, &devs[dev], copy[dev]);
 }
 
 plug_message_receive(_met_energy_cpu_get)
 {
-    return return_metrics(data, &devs[DEV_PP0]);
+    return mets_return(data, DEV_PP0);
 }
 
 plug_message_receive(_met_energy_socket_get)
 {
-    return return_metrics(data, &devs[DEV_PKG]);
+    return mets_return(data, DEV_PKG);
 }
 
 plug_message_receive(_met_energy_all_get)
 {
-    return_metrics(data, &devs[DEV_PP0]);
-    return return_metrics(data, &devs[DEV_PKG]);
+    mets_return(data, DEV_PP0);
+    return mets_return(data, DEV_PKG);
 }
 
 plug_message_receive(_met_all_all_get)
 {
-    return_metrics(data, &devs[DEV_PP0]);
-    return return_metrics(data, &devs[DEV_PKG]);
+    mets_return(data, DEV_PP0);
+    return mets_return(data, DEV_PKG);
 }
 
 plug_message_receive(_all_all_all_info)
 {
-    metrics_request_t   *req = (metrics_request_t *) data;
-    metric_t *out = &req->outputs[req->outputs_count];
-    copy_metadata(&out[0], &devs[DEV_PP0].metrics_c[E], 0, devs[DEV_PP0].tp->cpu_count);
-    copy_metadata(&out[1], &devs[DEV_PKG].metrics_c[E], 0, devs[DEV_PKG].tp->cpu_count);
-    copy_metadata(&out[2], &devs[DEV_PP0].metrics_c[P], 0, devs[DEV_PP0].tp->cpu_count * acc_on);
-    copy_metadata(&out[3], &devs[DEV_PKG].metrics_c[P], 0, devs[DEV_PKG].tp->cpu_count * acc_on);
+    metrics_request_t *req = (metrics_request_t *) data;
+    metric_t          *out = &req->outputs[req->outputs_count];
+    met_copy(&out[0], &devs[DEV_PP0].mets2[E], NULL, 0, devs[DEV_PP0].tp->cpu_count);
+    met_copy(&out[1], &devs[DEV_PKG].mets2[E], NULL, 0, devs[DEV_PKG].tp->cpu_count);
+    met_copy(&out[2], &devs[DEV_PP0].mets2[P], NULL, 0, devs[DEV_PP0].tp->cpu_count * acc_on);
+    met_copy(&out[3], &devs[DEV_PKG].mets2[P], NULL, 0, devs[DEV_PKG].tp->cpu_count * acc_on);
     req->outputs_count += 2 + (acc_on*2);
     return NULL;
 }

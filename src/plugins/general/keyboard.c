@@ -24,7 +24,7 @@ static void string_exit()
 
 static int is(char *s1, const char *s2)
 {
-    return strncasecmp(s1, s2, strlen(s2)) == 0;
+    return strcasecmp(s1, s2) == 0;
 }
 
 static void *string_read(void *x)
@@ -38,7 +38,7 @@ static void *string_read(void *x)
         printf("Enter query: ");
         fflush(stdout);
         if ((i = scanf(" %1023[^\n]", string)) > 0) {
-            if (is(string, "exit")) {
+            if (is(string, "exit") || is(string, "quit") || is(string, "q")) {
                 string_exit();
             } else {
                 req.input = string;

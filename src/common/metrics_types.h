@@ -84,10 +84,7 @@ typedef struct metrics_s {
     command_e       command;
     char            command_label[8];
     timestamp_t     time;
-    union {
-        uint64_t   *values; // You don't have to allocate the output values
-        void       *values_misc;
-    };
+    uint64_t       *values; // You don't have to allocate the output values
     union {
         uint32_t    values_count;
         uint32_t    devs_count;

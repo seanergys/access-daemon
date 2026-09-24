@@ -45,6 +45,11 @@ plug_periodic(_metrics_accumulator)
     return NULL;
 }
 
+static void get_storage(int o)
+{
+
+}
+
 plug_message_receive(_metrics_call)
 {
     static __thread metric_t *outs = NULL; // Returning data
@@ -62,6 +67,8 @@ plug_message_receive(_metrics_call)
     // If it is not a Metric nor Get, let the call pipeline to continue
     if (req->input.domain  != Metric) { return NULL; }
     if (req->input.command != Get   ) { return NULL; }
+    printf("%s_%s_%s_%s\n", req->input.domain_label, req->input.metric_label,
+        req->input.device_label, req->input.command_label);
     // If is a metric then this is a trap, do not call any metrics plugin
     while (pthread_mutex_trylock(&lock));
     for (a = o = 0; a < acc.outputs_count; a++) {
@@ -87,8 +94,8 @@ plug_message_receive(_metrics_call)
         // Increasing one
         req->outputs_count = ++o;
         // Cutting the comms now because is a specific metric
-        if (req->input.metric != AllMetrics) break;
-        if (req->input.device != AllDevices) break;
+        if (req->input.device != AllDevices &&
+            req->input.metric != AllMetrics) break;
     }
 leave:
     pthread_mutex_unlock(&lock);

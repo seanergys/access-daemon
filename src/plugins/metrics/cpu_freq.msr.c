@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 #include <common/framework.h>
 #include <common/metrics_types.h>
 #include <common/ear_extensions.h>
@@ -11,10 +12,11 @@
 #define MSR_IA32_APERF 0x000000E8
 #define MSR_IA32_MPERF 0x000000E7
 
-#define METS_MAX 3
-#define F        0 // Index 0 is current Freq
-#define A        1 // Index 1 is current AccFreq (derived)
-#define LF       2 // Index 2 is last Freq
+#define METS_MAX      3
+#define METS_MAX_REAL 2 // These thar are returned
+#define F             0 // Index 0 is current Freq
+#define A             1 // Index 1 is current AccFreq (derived)
+#define LF            2 // Index 2 is last Freq
 
 typedef struct sensor_s {
     uint64_t aperf;
@@ -22,12 +24,13 @@ typedef struct sensor_s {
 } sensor_t;
 
 // TODO: allocate space based on number of cpus
-static topology_t *tp;
-static uint64_t    base_frequency;
-static sensor_t   *registers1;
-static sensor_t   *registers2;
-static metric_t mets[METS_MAX]; // Current and last Freq and AccFreq
-static int         acc_on; // Accumulator plugin is online
+static topology_t     *tp;
+static uint64_t        base_frequency;
+static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+static sensor_t       *registers1;
+static sensor_t       *registers2;
+static metric_t        mets[METS_MAX]; // Current and last Freq and AccFreq
+static int             acc_on; // Accumulator plugin is online
 
 plug_identity()
 {
@@ -35,7 +38,7 @@ plug_identity()
     *tags_deps = "!topology_ext";
 }
 
-static void get(uint32_t cpu_min, uint32_t cpu_max)
+static void dev_read(uint32_t cpu_min, uint32_t cpu_max)
 {
     int i;
 
@@ -46,7 +49,7 @@ static void get(uint32_t cpu_min, uint32_t cpu_max)
     }
 }
 
-static void acc(uint32_t cpu_min, uint32_t cpu_max)
+static void dev_acc(uint32_t cpu_min, uint32_t cpu_max)
 {
     uint64_t aperf_percent = 0LLU;
     uint64_t mperf_diff    = 0LLU;
@@ -79,7 +82,7 @@ static void acc(uint32_t cpu_min, uint32_t cpu_max)
     }
 }
 
-static void copy(uint32_t cpu_min, uint32_t cpu_max)
+static void dev_copy(uint32_t cpu_min, uint32_t cpu_max)
 {
     memcpy(&registers1[cpu_min], &registers2[cpu_min], sizeof(sensor_t) * (cpu_max - cpu_min));
     mets[LF].time = mets[F].time;
@@ -116,20 +119,21 @@ plug_init(_topology_ext)
     mets[A].metric      = AccFreq;
     mets[A].metric_name = MET_NAME(AccFreq);
     for (m = 0; m < METS_MAX; ++m) {
-        mets[m].domain      = Metric;
-        mets[m].domain_name = MET_NAME(Metric);
-        mets[m].device      = Cpu;
-        mets[m].device_name = MET_NAME(Cpu);
-        mets[m].values      = calloc(tp->cpu_count, sizeof(uint64_t));
-        mets[m].units       = "KHz";
-        mets[m].granularity = Cpu;
+        mets[m].domain       = Metric;
+        mets[m].domain_name  = MET_NAME(Metric);
+        mets[m].device       = Cpu;
+        mets[m].device_name  = MET_NAME(Cpu);
+        mets[m].values       = calloc(tp->cpu_count, sizeof(uint64_t));
+        mets[m].values_count = tp->cpu_count;
+        mets[m].units        = "KHz";
+        mets[m].granularity  = Cpu;
     }
     // APERF and MPERF values don't fit in the metrics
     registers1 = calloc(tp->cpu_count, sizeof(sensor_t));
     registers2 = calloc(tp->cpu_count, sizeof(sensor_t));
     // First readings
-    get (0, tp->cpu_count);
-    copy(0, tp->cpu_count);
+    dev_read(0, tp->cpu_count);
+    dev_copy(0, tp->cpu_count);
     return NULL;
 }
 
@@ -140,15 +144,16 @@ plug_init(_metrics_accumulator)
     return NULL;
 }
 
-static void copy_metadata(metric_t *out, metric_t *met, int cpu_min, int cpu_max)
+static void met_copy(metric_t *out, metric_t *met, uint64_t *copy, int cpu_min, int cpu_max)
 {
-    if (cpu_max == 0) { return; }
-    memcpy(out, met, sizeof(metric_t));
-    out->values       = &met->values[cpu_min];
-    out->values_count = cpu_max - cpu_min;
+    if (cpu_max == 0) return;
+    memcpy(out, met, sizeof(metric_t)), out->values = NULL; // Meta-data only
+    out->values_count = cpu_max - cpu_min; // #Values/devices
+    if ((out->values = copy) == NULL) return; // The caller does not want values
+    memcpy(copy, &met->values[cpu_min], sizeof(uint64_t)*out->values_count);
 }
 
-static char *return_metrics(void *data)
+static char *mets_read(void *data, uint64_t *copy)
 {
     metrics_request_t *req = (metrics_request_t *) data;
     metric_t  *out = &req->outputs[req->outputs_count];
@@ -164,14 +169,26 @@ static char *return_metrics(void *data)
     //   - When someone calls to often, the differences tighten up, and when
     //     this happens, the frequency average that is calculated after
     //     processing the APERF and MPERF may be less precise.
-    get (cpu_min, cpu_max); // Getting new sensor values
-    acc (cpu_min, cpu_max); // The accumulation is only possible if
-    copy(cpu_min, cpu_max); // Copying the new values for later.
+    while (pthread_mutex_trylock(&lock));
+    dev_read(cpu_min, cpu_max); // Getting new sensor values
+    dev_acc (cpu_min, cpu_max); // The accumulation is only possible if
+    dev_copy(cpu_min, cpu_max); // Copying the new values for later.
     // Returning metric
-    copy_metadata(&out[F], &mets[F], cpu_min, cpu_max);
-    copy_metadata(&out[A], &mets[A], cpu_min, cpu_max * accumulated);
+    met_copy(&out[F], &mets[F], &copy[cpu_min], cpu_min, cpu_max);
+    met_copy(&out[A], &mets[A], &copy[cpu_max], cpu_min, cpu_max * accumulated);
     req->outputs_count += 1 + accumulated;
+    pthread_mutex_unlock(&lock);
     return NULL;
+}
+
+static char *mets_return(void *data)
+{
+    static __thread uint64_t *copy = NULL;
+    // Each thread here will have its own copy of values.
+    if (copy == NULL) {
+        copy = calloc(mets[F].devs_count, sizeof(uint64_t)*METS_MAX_REAL);
+    }
+    return mets_read(data, copy);
 }
 
 plug_message_receive(_met_freq_cpu_get)
@@ -179,20 +196,20 @@ plug_message_receive(_met_freq_cpu_get)
     // APERF and MPERF values are not understandable as accumulative frequency.
     // After processing them you only get the average frequency between two
     // specific times, and this means is converted to an immediate value.
-    return return_metrics(data);
+    return mets_return(data);
 }
 
 plug_message_receive(_met_all_all_get)
 {
-    return return_metrics(data);
+    return mets_return(data);
 }
 
 plug_message_receive(_all_all_all_info)
 {
     metrics_request_t *req = (metrics_request_t *) data;
     metric_t  *out = &req->outputs[req->outputs_count];
-    copy_metadata(&out[F], &mets[F], 0, tp->cpu_count);
-    copy_metadata(&out[A], &mets[A], 0, tp->cpu_count * acc_on);
+    met_copy(&out[F], &mets[F], NULL, 0, tp->cpu_count);
+    met_copy(&out[A], &mets[A], NULL, 0, tp->cpu_count * acc_on);
     req->outputs_count += 1 + acc_on;
     return NULL;
 }
