@@ -11,8 +11,8 @@ OBJS  = \
     msr.o \
     file.o \
     args.o \
-    keeper.o \
     environment_common.o \
+    keeper.o \
     math_operations.o \
     monitor.o \
     overhead.o \

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 #include <common/framework.h>
 #include <common/metrics_types.h>
 #include <plugins/general/topology_ext.h>

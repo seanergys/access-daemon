@@ -1,8 +1,8 @@
 CC               = /bin/gcc
-CC_FLAGS         = -I$(PWD)/src -I$(EAR_SRCDIR) -g
-ROOT_SRCDIR      = $(shell pwd)
-EAR_SRCDIR       = /home/jordi/Documents/git/ear_private/src
-SEANERBUS_PREFIX = /home/jordi/Documents/opt/seanerbus
+CC_FLAGS         = -I$(PWD)/src -I$(EAR_SRCDIR) -I$(STUBS_SRCDIR) -g
+EAR_SRCDIR       = $(PWD)/external/ear/src
+STUBS_SRCDIR     = $(PWD)/external/stubs
+SEANERBUS_PREFIX =
 
 all:
 	@ $(MAKE) -C 'src' all || exit
