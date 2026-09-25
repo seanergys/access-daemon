@@ -58,7 +58,7 @@ plug_init(_seanerbus)
 static void print_udata(void *udata, char *label)
 {
     uuid_full_t *uuid = udata;
-    printf("%d %s %s %s_%s_%s_%d\n", gettid(), label, uuid->uuid_str, uuid->met->domain_name,
+    printf("%s %s %s_%s_%s_%d\n", label, uuid->uuid_str, uuid->met->domain_name,
         uuid->met->metric_name, uuid->met->device_name, uuid->device_no);
 }
 
@@ -135,7 +135,6 @@ plug_init_post(_seanerbus)
     char device_no[16];
     int o, d;
 
-    printf("%d:plug_init_post\n", gettid());
     info.input.domain    = All;
     info.input.device    = All;
     info.input.metric    = All;

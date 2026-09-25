@@ -47,7 +47,7 @@ plug_periodic(_metrics_accumulator)
 
 static void get_storage(int o)
 {
-
+    // TODO: use TLS to return a thread-safe copy of the values
 }
 
 plug_message_receive(_metrics_call)
@@ -67,8 +67,8 @@ plug_message_receive(_metrics_call)
     // If it is not a Metric nor Get, let the call pipeline to continue
     if (req->input.domain  != Metric) { return NULL; }
     if (req->input.command != Get   ) { return NULL; }
-    printf("%s_%s_%s_%s\n", req->input.domain_label, req->input.metric_label,
-        req->input.device_label, req->input.command_label);
+    //printf("%s_%s_%s_%s\n", req->input.domain_label, req->input.metric_label,
+    //    req->input.device_label, req->input.command_label);
     // If is a metric then this is a trap, do not call any metrics plugin
     while (pthread_mutex_trylock(&lock));
     for (a = o = 0; a < acc.outputs_count; a++) {

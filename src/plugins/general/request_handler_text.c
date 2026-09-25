@@ -65,36 +65,6 @@ static char *process_text_configuration(metrics_request_text_t *req)
     return NULL;
 }
 
-static int is(char *s1, const char *s2)
-{
-    return strncasecmp(s1, s2, strlen(s1)) == 0;
-}
-
-static char *process_input_metrics_toint(metric_t *input, char *arguments)
-{
-    if      (is(input->domain_label , MET_NAME(Met)    )) { input->domain  = Met;        }
-    else if (is(input->domain_label , MET_NAME(Act)    )) { input->domain  = Act;        }
-    if      (is(input->command_label, MET_NAME(Get)    )) { input->command = Get;        }
-    else if (is(input->command_label, MET_NAME(Set)    )) { input->command = Set;        }
-    else if (is(input->command_label, MET_NAME(Info)   )) { input->command = Info;       }
-    if      (is(input->device_label , MET_NAME(All)    )) { input->device  = All;        }
-    else if (is(input->device_label , MET_NAME(Cpu)    )) { input->device  = Cpu;        }
-    else if (is(input->device_label , MET_NAME(Socket) )) { input->device  = Socket;     }
-    else if (is(input->device_label , MET_NAME(Gpu)    )) { input->device  = Gpu;        }
-    if      (is(input->metric_label , MET_NAME(All)    )) { input->metric  = All;        }
-    else if (is(input->metric_label , MET_NAME(Pow)    )) { input->metric  = Pow;        }
-    else if (is(input->metric_label , MET_NAME(Pwr)    )) { input->metric  = Pwr;        }
-    else if (is(input->metric_label , MET_NAME(Energy) )) { input->metric  = Energy;     }
-    else if (is(input->metric_label , MET_NAME(Freq)   )) { input->metric  = Freq;       }
-    else if (is(input->metric_label , MET_NAME(AccFreq))) { input->metric  = AccFreq;    }
-    else if (is(input->metric_label , MET_NAME(FreqMem))) { input->metric  = FreqMem;    }
-    else if (is(input->metric_label , MET_NAME(AccFreqMem))) { input->metric = AccFreqMem; }
-    // Device number follow different rules
-    if (is(input->device_no_label, MET_NAME(All))) { input->device_no = All; }
-    else atoi(input->device_no_label);
-    // TODO: ¿Arguments?
-}
-
 static char *process_output_metrics_tochar(metrics_request_t *parsed)
 {
     int o, v, c;
@@ -106,7 +76,7 @@ static char *process_output_metrics_tochar(metrics_request_t *parsed)
         return output_buffer;
     }
     for (o = c = 0; o < parsed->outputs_count; ++o) {
-        c += sprintf(&output_buffer[c], "%s: %s_%s (%s)",
+        c += sprintf(&output_buffer[c], "%s %s_%s (%s)",
             parsed->outputs[o].domain_name,
             parsed->outputs[o].device_name,
             parsed->outputs[o].metric_name,
@@ -125,19 +95,69 @@ static char *process_output_metrics_tochar(metrics_request_t *parsed)
     return output_buffer;
 }
 
+static int is(char *s1, const char *s2)
+{
+    return strncasecmp(s1, s2, strlen(s2)) == 0;
+}
+
+static void process_input_metrics_toint(metric_t *input, char *arguments)
+{
+    char buffer[128];
+    // TODO: use a temporal input to correct labels (i.e: Power or Pwr to Pow)
+    if      (is(input->domain_label , MET_NAME(All)    )) { input->domain  = All;        }
+    else if (is(input->domain_label , MET_NAME(Met)    )) { input->domain  = Met;        }
+    else if (is(input->domain_label , MET_NAME(Act)    )) { input->domain  = Act;        }
+    if      (is(input->device_label , MET_NAME(All)    )) { input->device  = All;        }
+    else if (is(input->device_label , MET_NAME(Cpu)    )) { input->device  = Cpu;        }
+    else if (is(input->device_label , MET_NAME(Thread) )) { input->device  = Thread;     }
+    else if (is(input->device_label , MET_NAME(Core)   )) { input->device  = Core;       }
+    else if (is(input->device_label , MET_NAME(Pp0)    )) { input->device  = Pp0;        }
+    else if (is(input->device_label , MET_NAME(Socket) )) { input->device  = Socket;     }
+    else if (is(input->device_label , MET_NAME(Pkg)    )) { input->device  = Pkg;        }
+    else if (is(input->device_label , MET_NAME(Package))) { input->device  = Package;    }
+    else if (is(input->device_label , MET_NAME(Uncore) )) { input->device  = Uncore;     }
+    else if (is(input->device_label , MET_NAME(Pp1)    )) { input->device  = Pp1;        }
+    else if (is(input->device_label , MET_NAME(Mem)    )) { input->device  = Mem;        }
+    else if (is(input->device_label , MET_NAME(Dram)   )) { input->device  = Dram;       }
+    else if (is(input->device_label , MET_NAME(Gpu)    )) { input->device  = Gpu;        }
+    if      (is(input->metric_label , MET_NAME(All)    )) { input->metric  = All;        }
+    else if (is(input->metric_label , MET_NAME(Pow)    )) { input->metric  = Pow;        }
+    else if (is(input->metric_label , MET_NAME(Pwr)    )) { input->metric  = Pwr;        }
+    else if (is(input->metric_label , MET_NAME(Power)  )) { input->metric  = Power;      }
+    else if (is(input->metric_label , MET_NAME(Energy) )) { input->metric  = Energy;     }
+    else if (is(input->metric_label , MET_NAME(Freq)   )) { input->metric  = Freq;       }
+    else if (is(input->metric_label , MET_NAME(Frequency))) { input->metric = Frequency; }
+    else if (is(input->metric_label , MET_NAME(AccFreq))) { input->metric  = AccFreq;    }
+    else if (is(input->metric_label , MET_NAME(Bwidth) )) { input->metric  = Bwidth;     }
+    else if (is(input->metric_label , MET_NAME(Bandwidth))) { input->metric = Bandwidth; }
+    if      (is(input->command_label, MET_NAME(Get)    )) { input->command = Get;        }
+    else if (is(input->command_label, MET_NAME(Set)    )) { input->command = Set;        }
+    else if (is(input->command_label, MET_NAME(Info)   )) { input->command = Info;       }
+    // Device number follow different rules
+    if (is(input->device_no_label, MET_NAME(All))) { input->device_no = All; }
+    else input->device_no = (uint64_t) atoi(input->device_no_label);
+    // We assume text based request are coming from the keyboard plugin only.
+    input->values_count = 0;
+    while ((arguments = wrdcpy(arguments, buffer)) != NULL) {
+        arguments_values[input->values_count] = (uint64_t) atoi(buffer);
+        printf("arguments %lu\n", arguments_values[input->values_count]);
+        input->values_count++;
+    }
+}
+
 static char *process_text_metrics(metrics_request_text_t *req)
 {
     metrics_request_t parsed = {0};
     const char *string = req->input;
 
-    // Parsing
+    // Parsing labels
     if (!(string = wrdcpy(string, parsed.input.domain_label   ))) return NULL;
     if (!(string = wrdcpy(string, parsed.input.metric_label   ))) return NULL;
     if (!(string = wrdcpy(string, parsed.input.device_label   ))) return NULL;
     if (!(string = wrdcpy(string, parsed.input.device_no_label))) return NULL;
     if (!(string = wrdcpy(string, parsed.input.command_label  ))) return NULL;
     process_input_metrics_toint(&parsed.input, (char *) string);
-    plug_message_send("metrics_call", (void *) &parsed);
+    plug_message_send("received_request", (void *) &parsed);
     // Return the metrics converted into text
     req->output = process_output_metrics_tochar(&parsed);
     return NULL;

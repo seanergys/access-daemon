@@ -37,11 +37,12 @@ typedef enum {
     Core,
     Pp0 = Core,
     Socket,
+    Pkg = Socket,
     Package = Socket,
     Uncore,
     Pp1 = Uncore,
-    Dram,
-    Mem = Dram,
+    Mem,
+    Dram = Mem,
     Gpu,
 } device_e;
 
@@ -54,8 +55,10 @@ typedef enum {
     Freq,
     Frequency = Freq,
     AccFreq,
-    FreqMem,
+    FreqMem, // Pending to solve
     AccFreqMem,
+    Bwidth,
+    Bandwidth = Bwidth,
 } metric_e;
 
 typedef enum {
