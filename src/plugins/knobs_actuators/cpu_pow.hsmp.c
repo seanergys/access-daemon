@@ -42,6 +42,7 @@ plug_init(_topology_ext)
     ctxs[CPUPOW_SOCKET].dev        = Socket;
     ctxs[CPUPOW_SOCKET].dev_name   = MET_NAME(Socket);
     ctxs[CPUPOW_CORE  ].devs_count = tp->cpu_count;
+    // TODO: Is Core
     ctxs[CPUPOW_CORE  ].dev        = Cpu;
     ctxs[CPUPOW_CORE  ].dev_name   = MET_NAME(Cpu);
     // Allocations
@@ -79,7 +80,7 @@ static char *get_actuators(void *data, dev_ctx_t *ctx)
     req->outputs[o].values       = &ctx->current_knobs[cpu_min];
     req->outputs[o].units        = "W";
     req->outputs[o].values_count = cpu_max - cpu_min;
-    req->outputs[o].granularity  = ctx->dev;
+    req->outputs[o].granul  = ctx->dev;
     req->outputs_count++;
     return NULL;
 }

@@ -14,7 +14,7 @@ The Access Daemon is a plugin-based program that runs as a Linux daemon. Each pl
 
 ## How to compile
 
-1) Download the dependencies: `git submodule update --init --recursive`.
+1) Download the dependencies: `git submodule update --init --recursive` (mainly the [EAR Mirror](https://gitlab.seanergys.fz-juelich.de/software/ear)).
 2) (Optional) If you want to build the Data Plane plugin, compile and install [Seanerbus](https://gitlab.seanergys.fz-juelich.de/software/seanerbus) and its [C bindings](https://gitlab.seanergys.fz-juelich.de/software/seanerbus-cpp). Then add the `SEANERBUS_PREFIX` path to the AD root Makefile.
 3) Run `make`.
 

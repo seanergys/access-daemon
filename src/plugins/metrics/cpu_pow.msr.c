@@ -22,10 +22,13 @@ typedef struct dev_ctx_s {
     uint64_t    addr_stat;
     metric_t    mets2[METS_MAX]; // Current
     metric_t    mets1[METS_MAX]; // Last
+    device_e    granul;
+    char       *granul_name;
 } dev_ctx_t;
 
 static topology_t      *tp;
-static topology_t      *tp_socket;
+static topology_t       tp_sockets;
+static topology_t       tp_cores;
 static dev_ctx_t        devs[DEVS_MAX]; // Devices meta-data and values
 static pthread_mutex_t  lock = PTHREAD_MUTEX_INITIALIZER;
 static uint64_t         power_unit;
@@ -85,10 +88,10 @@ static void dev_copy(dev_ctx_t *dev, uint32_t dev_min, uint32_t dev_max)
 
 plug_init(_topology_ext)
 {
-    static topology_t tp_socket_st;
     int cpu, d, m;
     uint64_t res;
 
+    // TODO: disable by now, the PP0
     tp = (topology_t *) data;
     #define ADDR_INIT(pu, pkg, dram, pp0, pp1) { \
         power_unit  = pu;   \
@@ -103,45 +106,54 @@ plug_init(_topology_ext)
         return "[X] not compatible with this CPU";
     }
     // Getting also the topology per socket
-    topology_select(tp, &tp_socket_st, TPSelect.socket, TPGroup.merge, 0);
-    tp_socket = &tp_socket_st;
-    // More initializations
-    devs[DEV_PKG].tp = tp_socket;
-    devs[DEV_PP0].tp = tp;
+    topology_select(tp, &tp_sockets, TPSelect.socket, TPGroup.merge, 0);
+    topology_select(tp, &tp_cores  , TPSelect.core  , TPGroup.merge, 0);
     // Testing if MSR can be read
     if (state_fail(msr_test(tp, MSR_RD))) {
         return "[X] not enough privileges to read MSR";
     }
     // Opening MSRs.
-    for (cpu = 0; cpu < tp->cpu_count; ++cpu) {
-        if (state_fail(msr_open(tp->cpus[cpu].id, MSR_RD))) {
+    for (cpu = 0; cpu < tp_cores.cpu_count; ++cpu) {
+        if (state_fail(msr_open(tp_cores.cpus[cpu].id, MSR_RD))) {
             for (cpu -= 1; cpu >= 0; --cpu) {
-                msr_close(tp->cpus[cpu].id);
+                msr_close(tp_cores.cpus[cpu].id);
             }
             return "[X] failed while opening MSRs";
         }
     }
-    if ((state_fail(msr_read(tp->cpus[E].id, &res, sizeof(res), power_unit)))) {
+    if ((state_fail(msr_read(tp_cores.cpus[0].id, &res, sizeof(res), power_unit)))) {
         return "[X] failed while reading MSRs";
     }
     units = pow(0.5, (double) getbits64(res, 12, 8));
-    // Allocatiion and first readings
+    // More initializations
+    devs[DEV_PKG].tp          = (tp->vendor == VENDOR_INTEL)? &tp_sockets: &tp_sockets;
+    devs[DEV_PP0].tp          = (tp->vendor == VENDOR_INTEL)? &tp_sockets: &tp_cores;
+    devs[DEV_PKG].granul      = (tp->vendor == VENDOR_INTEL)? Socket: Socket;
+    devs[DEV_PP0].granul      = (tp->vendor == VENDOR_INTEL)? Socket: Core;
+    devs[DEV_PKG].granul_name = (tp->vendor == VENDOR_INTEL)? MET_NAME(Socket): MET_NAME(Socket);
+    devs[DEV_PP0].granul_name = (tp->vendor == VENDOR_INTEL)? MET_NAME(Socket): MET_NAME(Core);
+    // Allocation and first readings
     for (m = 0; m < METS_MAX; ++m) {
         devs[DEV_PKG].mets2[m].device       = Socket;
-        devs[DEV_PP0].mets2[m].device       = Cpu;
+        devs[DEV_PP0].mets2[m].device       = Core;
         devs[DEV_PKG].mets2[m].device_name  = MET_NAME(Socket);
-        devs[DEV_PP0].mets2[m].device_name  = MET_NAME(Cpu);
-        devs[DEV_PKG].mets2[m].values_count = tp_socket->cpu_count;
-        devs[DEV_PP0].mets2[m].values_count = tp->cpu_count;
-    }
-    for (d = 0; d < DEVS_MAX; ++d) {
+        devs[DEV_PP0].mets2[m].device_name  = MET_NAME(Core);
+        devs[DEV_PKG].mets2[m].device_alias = MET_NAME(Pkg);
+        devs[DEV_PP0].mets2[m].device_alias = MET_NAME(Pp0);
+        devs[DEV_PKG].mets2[m].values_count = devs[DEV_PKG].tp->cpu_count;
+        devs[DEV_PP0].mets2[m].values_count = devs[DEV_PP0].tp->cpu_count;
+        devs[DEV_PKG].mets2[m].granul       = devs[DEV_PKG].granul;
+        devs[DEV_PP0].mets2[m].granul       = devs[DEV_PP0].granul;
+        devs[DEV_PKG].mets2[m].granul_name  = devs[DEV_PKG].granul_name;
+        devs[DEV_PP0].mets2[m].granul_name  = devs[DEV_PP0].granul_name;
+    } for (d = 0; d < DEVS_MAX; ++d) {
         devs[d].mets2[E].domain      = Metric;
         devs[d].mets2[P].domain      = Metric;
         devs[d].mets2[E].domain_name = MET_NAME(Metric);
         devs[d].mets2[P].domain_name = MET_NAME(Metric);
-        devs[d].mets2[E].values      = calloc(tp->cpu_count, sizeof(uint64_t));
-        devs[d].mets2[P].values      = calloc(tp->cpu_count, sizeof(uint64_t)); // Space for immediate
-        devs[d].mets1[E].values      = calloc(tp->cpu_count, sizeof(uint64_t)); // Last energies read
+        devs[d].mets2[E].values      = calloc(devs[d].tp->cpu_count, sizeof(uint64_t));
+        devs[d].mets2[P].values      = calloc(devs[d].tp->cpu_count, sizeof(uint64_t)); // Space for immediate
+        devs[d].mets1[E].values      = calloc(devs[d].tp->cpu_count, sizeof(uint64_t)); // Last energies read
         devs[d].mets2[E].metric      = Energy;
         devs[d].mets2[P].metric      = Power;
         devs[d].mets2[E].metric_name = MET_NAME(Energy);
@@ -213,7 +225,7 @@ static char *mets_return(void *data, uint dev)
     return mets_read(data, &devs[dev], copy[dev]);
 }
 
-plug_message_receive(_met_energy_cpu_get)
+plug_message_receive(_met_energy_core_get)
 {
     return mets_return(data, DEV_PP0);
 }

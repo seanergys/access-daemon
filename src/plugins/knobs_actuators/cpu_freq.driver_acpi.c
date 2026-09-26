@@ -67,7 +67,7 @@ static char *return_actuators_values(void *data)
     req->outputs[o].values       = &current_list[cpu_min];
     req->outputs[o].units        = "KHz";
     req->outputs[o].values_count = cpu_max - cpu_min;
-    req->outputs[o].granularity  = Cpu;
+    req->outputs[o].granul  = Cpu;
     req->outputs_count++;
     return NULL;
 }

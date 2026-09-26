@@ -32,7 +32,7 @@ typedef enum {
 
 typedef enum {
     AllDevices = All,
-    Cpu = 1,
+    Cpu = 1, //Logic CPUs
     Thread = Cpu,
     Core,
     Pp0 = Core,
@@ -75,12 +75,13 @@ typedef struct metrics_s {
     const char     *error_msg;
     domain_e        domain;
     const char     *domain_name;
-    char            domain_label[8]; // Labels are spaces for inputs
+    char            domain_label[8]; // Labels are corrected names
     metric_e        metric;
     const char     *metric_name;
     char            metric_label[16];
     device_e        device;
     const char     *device_name;
+    const char     *device_alias; // Secondary name
     char            device_label[16];
     int32_t         device_no;
     char            device_no_label[8];
@@ -93,7 +94,8 @@ typedef struct metrics_s {
         uint32_t    devs_count;
     };
     const char     *units;
-    device_e        granularity;
+    device_e        granul;
+    const char     *granul_name;
 } metric_t;
 
 typedef struct metrics_request_s {

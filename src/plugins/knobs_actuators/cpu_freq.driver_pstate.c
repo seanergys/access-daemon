@@ -48,10 +48,11 @@ plug_init(_topology_ext)
     act.device_name = MET_NAME(Cpu);
     act.devs_count  = tp->cpu_count;
     act.metric      = Power;
-    act.metric_name = MET_NAME(Power);
+    act.metric_name = MET_NAME(Freq);
     act.values      = calloc(act.devs_count, sizeof(uint64_t));
-    act.units       = "Hz";
-    act.granularity = act.device;
+    act.units       = "KHz";
+    act.granul      = act.device;
+    act.granul_name = act.device_name;
     return NULL;
 }
 

@@ -39,12 +39,21 @@ plug_init(_topology_ext)
         return "[X] powercap is not supported";
     }
     // Initializations
-    ctxs[CPUPOW_CORE  ].met.device      = Cpu;
-    ctxs[CPUPOW_CORE  ].met.device_name = MET_NAME(Cpu);
-    ctxs[CPUPOW_CORE  ].met.devs_count  = tp->cpu_count;
-    ctxs[CPUPOW_SOCKET].met.device      = Socket;
-    ctxs[CPUPOW_SOCKET].met.device_name = MET_NAME(Socket);
-    ctxs[CPUPOW_SOCKET].met.devs_count  = tp->socket_count;
+    int socket_count = ops.count_devices(CPUPOW_SOCKET);
+    int core_count   = ops.count_devices(CPUPOW_CORE);
+    int core_scope   = (core_count == tp->core_count);
+    ctxs[CPUPOW_SOCKET].met.device       = Socket;
+    ctxs[CPUPOW_SOCKET].met.device_name  = MET_NAME(Socket);
+    ctxs[CPUPOW_SOCKET].met.device_alias = MET_NAME(Pkg);
+    ctxs[CPUPOW_SOCKET].met.devs_count   = socket_count;
+    ctxs[CPUPOW_SOCKET].met.granul       = Socket;
+    ctxs[CPUPOW_SOCKET].met.granul_name  = MET_NAME(Socket);
+    ctxs[CPUPOW_CORE].met.device         = Core;
+    ctxs[CPUPOW_CORE].met.device_name    = MET_NAME(Core);
+    ctxs[CPUPOW_CORE].met.device_alias   = MET_NAME(Pp0);
+    ctxs[CPUPOW_CORE].met.devs_count     = core_count;
+    ctxs[CPUPOW_CORE].met.granul         = (!core_scope)? Socket: Core;
+    ctxs[CPUPOW_CORE].met.granul_name    = (!core_scope)? MET_NAME(Socket): MET_NAME(Core);
     // Allocations
     for (i = 0; i < CPUPOW_DOMAINS; ++i) {
         ctxs[i].met.domain      = Actuator;
@@ -52,7 +61,6 @@ plug_init(_topology_ext)
         ctxs[i].met.metric      = Power;
         ctxs[i].met.metric_name = MET_NAME(Power);
         ctxs[i].met.units       = "W";
-        ctxs[i].met.granularity = ctxs[i].met.device;
         ctxs[i].met.values      = calloc(ctxs[i].met.devs_count, sizeof(uint64_t));
         ctxs[i].temporal_values = calloc(ctxs[i].met.devs_count, sizeof(uint32_t));
         ctxs[i].dev_cpupow      = i;
@@ -201,8 +209,9 @@ plug_message_receive(_all_all_all_info)
 {
     metrics_request_t *req = (metrics_request_t *) data;
     metric_t *out = &req->outputs[req->outputs_count];
-    act_copy(&out[0], &ctxs[CPUPOW_CORE  ].met, NULL, 0, ctxs[CPUPOW_CORE].met.devs_count);
-    act_copy(&out[1], &ctxs[CPUPOW_SOCKET].met, NULL, 0, ctxs[CPUPOW_SOCKET].met.devs_count);
+    act_copy(&out[0], &ctxs[CPUPOW_SOCKET].met, NULL, 0, ctxs[CPUPOW_SOCKET].met.devs_count);
+    // TODO: domain CORE in EAR contains an error
+    act_copy(&out[1], &ctxs[CPUPOW_CORE  ].met, NULL, 0, ctxs[CPUPOW_CORE  ].met.devs_count);
     req->outputs_count += 2;
     return NULL;
 }

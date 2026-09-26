@@ -126,7 +126,8 @@ plug_init(_topology_ext)
         mets[m].values       = calloc(tp->cpu_count, sizeof(uint64_t));
         mets[m].values_count = tp->cpu_count;
         mets[m].units        = "KHz";
-        mets[m].granularity  = Cpu;
+        mets[m].granul       = mets[m].device;
+        mets[m].granul_name  = mets[m].device_name;
     }
     // APERF and MPERF values don't fit in the metrics
     registers1 = calloc(tp->cpu_count, sizeof(sensor_t));

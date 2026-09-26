@@ -184,7 +184,7 @@ static char *return_metrics(void *data, metric_ctx_t *ctx, int derived)
             .time = ctx->time,
             .values = &(j ? ctx->derived : ctx->values)[dev_min],
             .values_count = dev_max - dev_min,
-            .units = j ? ctx->derived_units : ctx->units, .granularity = Gpu,
+            .units = j ? ctx->derived_units : ctx->units, .granul = Gpu,
         };
     }
     req->outputs_count += 1 + derived;

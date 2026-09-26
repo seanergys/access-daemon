@@ -1,3 +1,4 @@
 [submodule "external/ear"]
 	path = external/ear
 	url = git@gitlab.seanergys.fz-juelich.de:software/ear.git
+	branch = development

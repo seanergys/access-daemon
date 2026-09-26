@@ -83,7 +83,8 @@ static char *process_output_metrics_tochar(metrics_request_t *parsed)
             parsed->outputs[o].units);
         c += sprintf(&output_buffer[c], ": ");
         if (parsed->input.command == Info) {
-            c += sprintf(&output_buffer[c], "%d devices", parsed->outputs[o].devs_count);
+            c += sprintf(&output_buffer[c], "%d devices ", parsed->outputs[o].devs_count);
+            c += sprintf(&output_buffer[c], "(granularity %s)", parsed->outputs[o].granul_name);
         }
         if (parsed->input.command == Get) {
             for (v = 0; v < parsed->outputs[o].values_count; ++v) {
