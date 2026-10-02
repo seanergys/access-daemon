@@ -12,21 +12,20 @@
 #include <plugins/general/topology_ext.h>
 #include <plugins/knobs_actuators/cpu_freq.driver_governor.h>
 
+#define PATH_SMF "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_max_freq" // line break
+
 static topology_t      *tp;
-static metric_t        act;
-static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-static char            default_frequency[64];
+static int             *fds_smf; // FD scaling max freq
+static int             *fds_sgv;
+static metric_t         act;
+static pthread_mutex_t  lock = PTHREAD_MUTEX_INITIALIZER;
+static char             default_frequency[64];
 
 plug_identity()
 {
     *tag       = "act.cpu_freq.driver_pstate";
     *tags_deps = "!topology_ext,!act.cpu_freq.driver_governor";
 }
-
-#define PATH_SMF  "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_max_freq" // line break
-
-static int *fds_smf; // FD scaling max freq
-static int *fds_sgv;
 
 plug_init(_topology_ext)
 {
@@ -47,7 +46,7 @@ plug_init(_topology_ext)
     act.device      = Cpu;
     act.device_name = MET_NAME(Cpu);
     act.devs_count  = tp->cpu_count;
-    act.metric      = Power;
+    act.metric      = Freq;
     act.metric_name = MET_NAME(Freq);
     act.values      = calloc(act.devs_count, sizeof(uint64_t));
     act.units       = "KHz";

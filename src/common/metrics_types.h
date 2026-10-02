@@ -4,15 +4,22 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
-#include <sched.h>
-#include <common/system/time.h>
+#include <time.h>
+#include <stdint.h>
+#include <sys/time.h>
+
+//#include <common/system/time.h>
 
 // This header has the general types and the common wording of the Access Daemon
 
 #define MAX_METRICS_NO  64 //Maximum number of loadable metrics
+#define MAX_DEVICES_NO  2048
 #define DEVS_ALL       -1
 #define DEVS_MASK      -2
 #define MET_NAME(m)    #m
+#define VALUE_ERROR    -1
+
+typedef struct timespec timestamp_t;
 
 typedef enum {
     Ok = 0,
@@ -21,6 +28,7 @@ typedef enum {
 
 typedef enum {
     All = DEVS_ALL, // Useful for the Info command
+    AllDomains = All,
     Met,
     Metric = Met,
     Act,
@@ -71,11 +79,9 @@ typedef enum {
 } command_e;
 
 typedef struct metrics_s {
-    status_e        state;
-    const char     *error_msg;
     domain_e        domain;
     const char     *domain_name;
-    char            domain_label[8]; // Labels are corrected names
+    char            domain_label[8]; // Labels are for internal use
     metric_e        metric;
     const char     *metric_name;
     char            metric_label[16];
@@ -106,13 +112,7 @@ typedef struct metrics_request_s {
     uint8_t      outputs_count;
 } metrics_request_t;
 
-typedef struct request_text_s {
-    char  *input;
-    char  *output;
-} metrics_request_text_t;
-
 // Short-names
-typedef metrics_request_text_t mets_req_text_t;
 typedef metrics_request_t      mets_req_t;
 
 #endif //METRICS_TYPES_H

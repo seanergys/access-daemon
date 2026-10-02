@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <plugins/general/keyboard.h>
 #include <plugins/general/request_handler.h>
+#include <plugins/general/request_handler_text.h>
 
 static pthread_t thread;
 static int is_closing;

@@ -3,7 +3,6 @@
 #include <pthread.h>
 #include <common/framework.h>
 #include <common/metrics_types.h>
-#include <common/ear_extensions.h>
 #include <common/math_operations.h>
 #include <metrics/common/msr.h>
 #include <metrics/cpufreq/archs/intel63.h>

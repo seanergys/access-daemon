@@ -1,12 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 #include <common/framework.h>
-#include <common/hardware/bithack.h>
-#include <metrics/common/hsmp.c>
 #include <common/metrics_types.h>
+#include <common/hardware/bithack.h>
+#include <metrics/common/hsmp.h>
 
-static topology_t *tp;
-static uint64_t   *current_list;
+static topology_t     *tp;
+static metric_t        act;
+static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 plug_identity()
 {
@@ -20,55 +22,82 @@ plug_init(_topology_ext)
     if (state_fail(hsmp_open(tp, HSMP_WR))) {
         return rsprintf("[X] HSMP failed: %s", state_msg);
     }
+    // Initializations
+    act.domain      = Actuator;
+    act.domain_name = MET_NAME(Actuator);
+    act.device      = Cpu;
+    act.device_name = MET_NAME(Cpu);
+    act.devs_count  = tp->cpu_count;
+    act.metric      = Freq;
+    act.metric_name = MET_NAME(Freq);
+    act.values      = calloc(act.devs_count, sizeof(uint64_t));
+    act.units       = "KHz";
+    act.granul      = act.device;
+    act.granul_name = act.device_name;
     return NULL;
 }
 
-static char *return_actuators_values(void *data)
+static void act_copy(metric_t *out, metric_t *act, uint64_t *copy, int cpu_min, int cpu_max)
+{
+    if (cpu_max == 0) return;
+    memcpy(out, act, sizeof(metric_t)), out->values = NULL; // Meta-data only
+    out->values_count = cpu_max - cpu_min; // #Values/devices
+    if ((out->values = copy) == NULL) return; // The caller does not want values
+    memcpy(copy, &act->values[cpu_min], sizeof(uint64_t)*out->values_count);
+}
+
+static char *acts_read(void *data, uint64_t *copy)
 {
     metrics_request_t *req = (metrics_request_t *) data;
-    metric_t   *met = &req->input;
-    uint args[2] = {0, -1};
-    uint reps[2] = {0, -1};
-    int o        = req->outputs_count;
-    int cpu_max  = tp->cpu_count;
-    int cpu_min  = 0;
-    int cpu      = 0;
+    metric_t *met = &req->input;
+    uint args[2]  = {0, -1};
+    uint reps[2]  = {0, -1};
+    int o         = req->outputs_count;
+    int cpu_max   = tp->cpu_count;
+    int cpu_min   = 0;
+    int cpu       = 0;
 
     if (met->device_no != DEVS_ALL) {
         cpu_max = met->device_no + 1;
         cpu_min = met->device_no;
     }
+    // Reading the values
+    while (pthread_mutex_trylock(&lock));
     for (cpu = cpu_min; cpu < cpu_max; ++cpu) {
-        current_list[cpu] = 0LLU;
+        act.values[cpu] = 0LLU;
         // Preparing HSMP arguments and response
         args[0] = tp->cpus[cpu].apicid;
         reps[0] = 0;
         // Calling HSMP, response is freq (MHz)
         if (state_ok(hsmp_send(tp->cpus[cpu].socket_id, HSMP_GET_BOOST_LIMIT, args, reps))) {
-            current_list[cpu] = (uint64_t) reps[0];
+            act.values[cpu] = (uint64_t) reps[0];
         }
     }
-    // Returning metric
-    req->outputs[o].device       = Cpu;
-    req->outputs[o].device_name  = MET_NAME(Cpu);
-    req->outputs[o].metric       = Freq;
-    req->outputs[o].metric_name  = MET_NAME(Freq);
-    req->outputs[o].values       = &current_list[cpu_min];
-    req->outputs[o].units        = "KHz";
-    req->outputs[o].values_count = cpu_max - cpu_min;
-    req->outputs[o].granul  = Cpu;
+    // Copying metric
+    act_copy(&req->outputs[o], &act, &copy[cpu_min], cpu_min, cpu_max);
+    pthread_mutex_unlock(&lock);
     req->outputs_count++;
     return NULL;
 }
 
+static char *acts_return(void *data)
+{
+    static __thread uint64_t *copy = NULL;
+    // Each thread here will have its own copy of values.
+    if (copy == NULL) {
+        copy = calloc(act.devs_count, sizeof(uint64_t));
+    }
+    return acts_read(data, copy);
+}
+
 plug_message_receive(_act_freq_cpu_get)
 {
-    return return_actuators_values(data);
+    return acts_return(data);
 }
 
 plug_message_receive(_act_all_all_get)
 {
-    return return_actuators_values(data);
+    return acts_return(data);
 }
 
 plug_message_receive(_act_freq_cpu_set)
@@ -121,5 +150,14 @@ plug_message_receive(_act_freq_cpu_set)
 plug_message_receive(_act_freq_cpu_reset)
 {
     // TODO:
+    return NULL;
+}
+
+plug_message_receive(_all_all_all_info)
+{
+    metrics_request_t *req = (metrics_request_t *) data;
+    metric_t *out = &req->outputs[req->outputs_count];
+    act_copy(out, &act, NULL, 0, act.devs_count);
+    req->outputs_count++;
     return NULL;
 }

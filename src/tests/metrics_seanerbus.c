@@ -5,9 +5,6 @@
 #include <unistd.h>
 #include <plugins/general/seanerbus.h>
 
-#define METS_MAX 128
-#define DEVS_MAX 1024
-
 typedef struct metric_s {
     sea_addr_t *addr;
     char        uuid[37];
@@ -18,7 +15,7 @@ typedef struct metric_s {
     uint64_t    value;
 } protomet_t;
 
-static protomet_t  mets[METS_MAX*DEVS_MAX];
+static protomet_t  mets[MAX_METRICS_NO*MAX_DEVICES_NO];
 static int         mets_count;
 static sea_conn_t *conn;
 static sea_stat_t  st;

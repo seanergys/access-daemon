@@ -1,3 +1,6 @@
+SEA_CFLAGS  = -I$(SEANERBUS_PREFIX)/include
+SEA_LDFLAGS = -L$(SEANERBUS_PREFIX)/lib/ -lseanerbus_c
+
 SRC_DIRS  =  $(EAR_SRCDIR)/common/hardware
 SRC_DIRS += :$(EAR_SRCDIR)/data_center_monitor/plugins/tests
 SRC_DIRS += :$(EAR_SRCDIR)/management/cpufreq
@@ -5,7 +8,7 @@ SRC_DIRS += :$(EAR_SRCDIR)/management/cpufreq
 vpath %.c $(SRC_DIRS)
 vpath %.h $(SRC_DIRS)
 
-OBJS  = \
+BINS  = \
     keyboard.so \
     metrics_accumulator.so \
     metrics_caller.so \
@@ -14,7 +17,7 @@ OBJS  = \
     topology_ext.so
 
 ifdef SEANERBUS_PREFIX
-OBJS += seanerbus.so
+BINS += seanerbus.so
 endif
 
 TOPO_OBJS = \
@@ -24,10 +27,7 @@ TOPO_OBJS = \
     topology_tdp.o \
     cpufreq_base.o
 
-RQST_OBJS = \
-    request_handler.o
-
-all: $(OBJS)
+all: $(BINS)
 	rm -f *.o
 
 %.o: %.c %.h
@@ -37,11 +37,14 @@ all: $(OBJS)
 	$(CC) $(CC_FLAGS) -fPIC -shared -o $@ $^
 
 seanerbus.so: seanerbus.c
-	$(CC) $(CC_FLAGS) -fPIC -shared -I$(SEANERBUS_PREFIX)/include -o $@ $^ -luuid \
-	-Wl,--disable-new-dtags,-rpath,\$(SEANERBUS_PREFIX)/lib $(SEANERBUS_PREFIX)/lib/libseanerbus_c.so
+	$(CC) $(CC_FLAGS) $(SEA_CFLAGS) -fPIC -shared -o $@ $^ -luuid $(SEA_LDFLAGS)
 
 topology_ext.so: $(TOPO_OBJS)
 	$(CC) $(CC_FLAGS) -fPIC -shared -o $@ topology_ext.c $(TOPO_OBJS)
+
+install:
+	mkdir -p $(PREFIX)/lib/plugins
+	cp -f $(BINS) $(PREFIX)/lib/plugins
 
 clean:
 	rm -f *.o *.so

@@ -177,8 +177,7 @@ static char *acts_write(void *data, dev_ctx_t *ctx)
         ctx->temporal_values[cpu] = (uint32_t) act->values[cpu];
         printf("ops.powercap_set(%d, %u)\n", cpu, (uint32_t) act->values[cpu]);
     }
-    // Disabled because I don't want power changes in my Laptop
-    //ops.powercap_set(ctx->dev_cpupow, (uint *) ctx->temporal_values);
+    ops.powercap_set(ctx->dev_cpupow, (uint *) ctx->temporal_values);
     return NULL;
 }
 
@@ -210,7 +209,6 @@ plug_message_receive(_all_all_all_info)
     metrics_request_t *req = (metrics_request_t *) data;
     metric_t *out = &req->outputs[req->outputs_count];
     act_copy(&out[0], &ctxs[CPUPOW_SOCKET].met, NULL, 0, ctxs[CPUPOW_SOCKET].met.devs_count);
-    // TODO: domain CORE in EAR contains an error
     act_copy(&out[1], &ctxs[CPUPOW_CORE  ].met, NULL, 0, ctxs[CPUPOW_CORE  ].met.devs_count);
     req->outputs_count += 2;
     return NULL;

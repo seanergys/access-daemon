@@ -12,6 +12,10 @@ OBJS  = \
     file.o \
     args.o \
     environment_common.o \
+    hsmp.o \
+    hsmp_esmi.o \
+    hsmp_driver.o \
+    hsmp_pci.o \
     keeper.o \
     math_operations.o \
     monitor.o \
@@ -21,11 +25,12 @@ OBJS  = \
     poll.o \
     string.o \
     string_enhanced.o \
+    string_helpers.o \
     strtable.o \
     time.o \
     bithack.o
 
-all: libcommon.so
+all: libcommon.so libcommon.a
 	rm -f *.o
 
 %.o: %.c %.h
@@ -34,8 +39,15 @@ all: libcommon.so
 plugin_manager_internal.o: plugin_manager_internal.c plugin_manager_internal.h
 	$(CC) $(CC_FLAGS) -fPIC -DSEPARATOR="','" -c $< -o $@
 
+libcommon.a: $(OBJS)
+	$(AR) rvs $@ $(OBJS)
+
 libcommon.so: $(OBJS)
 	$(CC) $(CC_FLAGS) -shared -o $@ $(OBJS)
+
+install:
+	cp -f metrics_types.h $(PREFIX)/include
+	cp -f libcommon.so $(PREFIX)/lib
 
 clean:
 	rm -f *.o *.so
