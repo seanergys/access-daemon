@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export LD_LIBRARY_PATH=./src/common
+export LD_LIBRARY_PATH=./src/common:/home/jordi/Documents/opt/seanerbus/lib
 
 PLUGINS="keyboard.so"
 PLUGINS+=",seanerbus.so"

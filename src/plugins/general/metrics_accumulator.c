@@ -22,6 +22,17 @@ plug_init(_metrics_accumulator)
     return NULL;
 }
 
+static char *accumulate()
+{
+    while (pthread_mutex_trylock(&lock));
+    // Resetting
+    acc.outputs_count = 0;
+    // Every second (or periodic time set by the admin)
+    plug_message_send("metrics_call_indirect", (void *) &acc);
+    pthread_mutex_unlock(&lock);
+    return NULL;
+}
+
 plug_init_post(_metrics_accumulator)
 {
     sprintf(acc.input.domain_label , "met");
@@ -33,16 +44,12 @@ plug_init_post(_metrics_accumulator)
     acc.input.metric    = All;
     acc.input.device_no = All;
     acc.input.command   = GetAcc;
-    return NULL;
+    return accumulate();
 }
 
 plug_periodic(_metrics_accumulator)
 {
-    // Resetting
-    acc.outputs_count = 0;
-    // Every second (or periodic time set by the admin)
-    plug_message_send("metrics_call_indirect", (void *) &acc);
-    return NULL;
+    return accumulate();
 }
 
 static void get_storage(int o)
@@ -57,7 +64,7 @@ plug_message_receive(_metrics_call)
     int dev_max, dev_min;
     int a, o;
 
-    // If a new thread enters here it requires its own returning outputs.
+    // If a new thread enters here it need its own outputs copy
     if (outs == NULL) {
         outs = calloc(MAX_METRICS_NO, sizeof(metric_t));
     } else {
@@ -67,8 +74,6 @@ plug_message_receive(_metrics_call)
     // If it is not a Metric nor Get, let the call pipeline to continue
     if (req->input.domain  != Metric) { return NULL; }
     if (req->input.command != Get   ) { return NULL; }
-    //printf("%s_%s_%s_%s\n", req->input.domain_label, req->input.metric_label,
-    //    req->input.device_label, req->input.command_label);
     // If is a metric then this is a trap, do not call any metrics plugin
     while (pthread_mutex_trylock(&lock));
     for (a = o = 0; a < acc.outputs_count; a++) {
@@ -99,10 +104,5 @@ plug_message_receive(_metrics_call)
     }
 leave:
     pthread_mutex_unlock(&lock);
-    if (req->outputs_count == 0) {
-        req->state     = Error;
-        req->error_msg = "Metric not found.";
-    }
-    // TODO: do not print the [S]
     return "[S]";
 }

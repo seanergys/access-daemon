@@ -1,5 +1,7 @@
 all: all.sub-folders
 
+install: install.sub-folders
+
 clean: clean.sub-folders
 
 %.sub-folders:

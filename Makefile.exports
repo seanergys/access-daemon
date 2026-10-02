@@ -1,5 +1,7 @@
 export CC
 export CC_FLAGS
+export SRCDIR
+export PREFIX
 export EAR_SRCDIR
 export STUBS_SRCDIR
 export SEANERBUS_PREFIX

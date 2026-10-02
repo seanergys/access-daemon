@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <common/framework.h>
-#include <common/ear_extensions.h>
 #include <common/math_operations.h>
 #include <common/hardware/bithack.h>
 #include <metrics/common/msr.h>

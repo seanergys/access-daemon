@@ -1,8 +1,11 @@
-SEA_CFLAGS  = -I $(SEANERBUS_PREFIX)/include
-SEA_LDFLAGS = -Wl,--disable-new-dtags,-rpath,\$(SEANERBUS_PREFIX)/lib $(SEANERBUS_PREFIX)/lib/libseanerbus_c.so
+SEA_CFLAGS   = -I$(SEANERBUS_PREFIX)/include
+SEA_LDFLAGS  = -L$(SEANERBUS_PREFIX)/lib/ -lseanerbus_c -lseanerbus
+EASY_CFLAGS  =
+EASY_LDFLAGS = $(SEA_LDFLAGS) -L$(SRCDIR)/libraries -laccess_easybus
 
 ifdef SEANERBUS_PREFIX
-BINS += metrics_by_the_sea
+BINS += metrics_seanerbus \
+        metrics_easybus
 endif
 
 all: $(BINS)
@@ -10,8 +13,13 @@ all: $(BINS)
 %: %.c
 	$(CC) $(CC_FLAGS) -o $@ $^
 
-metrics_by_the_sea: metrics_by_the_sea.c
-	$(CC) $(CC_FLAGS) $(SEA_CFLAGS) -o $@ $^ $(SEA_LDFLAGS)
+metrics_seanerbus: metrics_seanerbus.c
+	$(CC) $(CC_FLAGS) -I../common/ $(SEA_CFLAGS) -o $@ $^ $(SEA_LDFLAGS)
+
+metrics_easybus: metrics_easybus.c
+	$(CC) $(CC_FLAGS) -I../common/ -o $@ $^ $(EASY_LDFLAGS) $(SRCDIR)/common/libcommon.a -lm
+
+install: ;
 
 clean:
 	rm -f $(BINS) *.o *.so

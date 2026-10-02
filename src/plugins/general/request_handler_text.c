@@ -2,8 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-//#include <plugins/general/data_plane.h>
+#include <common/string_helpers.h>
 #include <plugins/general/request_handler.h>
+#include <plugins/general/request_handler_text.h>
 
 static char     *output_buffer;
 static uint64_t *arguments_values;
@@ -96,44 +97,14 @@ static char *process_output_metrics_tochar(metrics_request_t *parsed)
     return output_buffer;
 }
 
-static int is(char *s1, const char *s2)
-{
-    return strncasecmp(s1, s2, strlen(s2)) == 0;
-}
-
 static void process_input_metrics_toint(metric_t *input, char *arguments)
 {
     char buffer[128];
-    // TODO: use a temporal input to correct labels (i.e: Power or Pwr to Pow)
-    if      (is(input->domain_label , MET_NAME(All)    )) { input->domain  = All;        }
-    else if (is(input->domain_label , MET_NAME(Met)    )) { input->domain  = Met;        }
-    else if (is(input->domain_label , MET_NAME(Act)    )) { input->domain  = Act;        }
-    if      (is(input->device_label , MET_NAME(All)    )) { input->device  = All;        }
-    else if (is(input->device_label , MET_NAME(Cpu)    )) { input->device  = Cpu;        }
-    else if (is(input->device_label , MET_NAME(Thread) )) { input->device  = Thread;     }
-    else if (is(input->device_label , MET_NAME(Core)   )) { input->device  = Core;       }
-    else if (is(input->device_label , MET_NAME(Pp0)    )) { input->device  = Pp0;        }
-    else if (is(input->device_label , MET_NAME(Socket) )) { input->device  = Socket;     }
-    else if (is(input->device_label , MET_NAME(Pkg)    )) { input->device  = Pkg;        }
-    else if (is(input->device_label , MET_NAME(Package))) { input->device  = Package;    }
-    else if (is(input->device_label , MET_NAME(Uncore) )) { input->device  = Uncore;     }
-    else if (is(input->device_label , MET_NAME(Pp1)    )) { input->device  = Pp1;        }
-    else if (is(input->device_label , MET_NAME(Mem)    )) { input->device  = Mem;        }
-    else if (is(input->device_label , MET_NAME(Dram)   )) { input->device  = Dram;       }
-    else if (is(input->device_label , MET_NAME(Gpu)    )) { input->device  = Gpu;        }
-    if      (is(input->metric_label , MET_NAME(All)    )) { input->metric  = All;        }
-    else if (is(input->metric_label , MET_NAME(Pow)    )) { input->metric  = Pow;        }
-    else if (is(input->metric_label , MET_NAME(Pwr)    )) { input->metric  = Pwr;        }
-    else if (is(input->metric_label , MET_NAME(Power)  )) { input->metric  = Power;      }
-    else if (is(input->metric_label , MET_NAME(Energy) )) { input->metric  = Energy;     }
-    else if (is(input->metric_label , MET_NAME(Freq)   )) { input->metric  = Freq;       }
-    else if (is(input->metric_label , MET_NAME(Frequency))) { input->metric = Frequency; }
-    else if (is(input->metric_label , MET_NAME(AccFreq))) { input->metric  = AccFreq;    }
-    else if (is(input->metric_label , MET_NAME(Bwidth) )) { input->metric  = Bwidth;     }
-    else if (is(input->metric_label , MET_NAME(Bandwidth))) { input->metric = Bandwidth; }
-    if      (is(input->command_label, MET_NAME(Get)    )) { input->command = Get;        }
-    else if (is(input->command_label, MET_NAME(Set)    )) { input->command = Set;        }
-    else if (is(input->command_label, MET_NAME(Info)   )) { input->command = Info;       }
+
+    input->domain  = label_to_id(input->domain_label);
+    input->device  = label_to_id(input->device_label);
+    input->metric  = label_to_id(input->metric_label);
+    input->command = label_to_id(input->command_label);
     // Device number follow different rules
     if (is(input->device_no_label, MET_NAME(All))) { input->device_no = All; }
     else input->device_no = (uint64_t) atoi(input->device_no_label);
