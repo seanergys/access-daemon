@@ -217,6 +217,7 @@ static int syncronize(synchro_t *sync)
     return 1; // Connected
 }
 
+// TODO: ¿include timeout configured by the user?
 int easybus_connect(char *local_address)
 {
     char *address = SEA_LOCAL_ADDRESS;
@@ -320,8 +321,8 @@ int easybus_request(domain_e dom, metric_e met, device_e dev, command_e cmd,
     static __thread synchro_t *tls_sync = NULL;
     static __thread metric_t  *tls_mets = NULL;
     int tls_mets_count  = 0;
-    int completed_count = 0;
-    int expected_count  = 0;
+    int completed_count = 0; // ¿Volatile?
+    int expected_count  = 0; // ¿Atomic?
     sea_err_t *err = NULL;
     sea_stat_t st = 0;
     int s, m, e;
@@ -373,7 +374,8 @@ int easybus_request(domain_e dom, metric_e met, device_e dev, command_e cmd,
         seanerbus_message_destroy(request);
         ++e;
     }
-    if (syncronize(&tls_sync[0])) {
+    // TODO: include timing calculations
+    if (!syncronize(&tls_sync[0])) {
         errno = ETIMEDOUT;
     }
 cleanup:
@@ -381,6 +383,10 @@ cleanup:
         debug("Error: %s", seanerbus_error_message(err));
         seanerbus_error_destroy(err);
     }
-    *_mets = tls_mets, *_mets_count = tls_mets_count;
+    if (_mets != NULL) {
+        *_mets = tls_mets;
+    } if (_mets_count != NULL) {
+        *_mets_count = tls_mets_count;
+    }
     return (st == SEANERBUS_STATUS_OK) && (expected_count == completed_count);
 }

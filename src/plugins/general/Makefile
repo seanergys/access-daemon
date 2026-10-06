@@ -16,16 +16,12 @@ BINS  = \
     request_handler_text.so \
     topology_ext.so
 
+TOPO_OBJS = \
+    cpufreq_base.o
+
 ifdef SEANERBUS_PREFIX
 BINS += seanerbus.so
 endif
-
-TOPO_OBJS = \
-    cpuid.o \
-    topology.o \
-    topology_asm.o \
-    topology_tdp.o \
-    cpufreq_base.o
 
 all: $(BINS)
 	rm -f *.o

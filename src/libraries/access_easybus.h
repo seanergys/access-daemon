@@ -3,6 +3,8 @@
 
 #include "metrics_types.h"
 
+// This header contains the definitions of EasyBUS library functions, which
+// simplifies communications with the Access Daemon through SeanerBUS.
 int easybus_connect(char *address);
 
 void easybus_disconnect();

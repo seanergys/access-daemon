@@ -6,7 +6,7 @@ PLUGINS="keyboard.so"
 PLUGINS+=",seanerbus.so"
 PLUGINS+=",request_handler.so"
 PLUGINS+=",request_handler_text.so"
-PLUGINS+=",metrics_accumulator.so:5000" #Optional
+PLUGINS+=",metrics_accumulator.so:1000" #Optional
 PLUGINS+=",metrics_caller.so"
 PLUGINS+=",met.cpu_freq.msr.so"
 PLUGINS+=",met.cpu_pow.msr.so"
@@ -16,6 +16,6 @@ PLUGINS+=",act.cpu_pow.msr.so"
 
 # The missing plugins in the argument can be found in the dependency list
 # present in the code of each plugin.
-./src/accessd ${1} \
+gdb --args ./src/accessd ${1} \
     --paths=./src/plugins/general:./src/plugins/metrics:./src/plugins/knobs_actuators \
     --plugins=${PLUGINS}

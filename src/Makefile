@@ -9,6 +9,7 @@ install: install.sub-folders
 	cp $(BINS) $(PREFIX)/sbin
 
 clean: clean.sub-folders
+	rm -f $(BINS)
 
 %.sub-folders:
 	@ $(MAKE) -C 'common' $* || exit
