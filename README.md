@@ -45,8 +45,8 @@ Keep in mind that the plugins in `./run.sh` may not be compatible with your syst
 | met.gpu_freq.nvml.so          | Freq, AccFreq*    | Gpu         | NVML                 | <span style="color:red">**IN DEVELOPMENT**</span>
 | met.gpu_pow.nvml.so           | Power, Energy*    | Gpu         | NVML                 | <span style="color:red">**IN DEVELOPMENT**</span>
 | act.cpu_freq.driver_pstate.so | Freq              | Cpu         | Pstate driver        | <span style="color:green">**OK**</span>
-| act.cpu_freq.driver_acpi.so   | Freq              | Cpu         | ACPI driver          | <span style="color:orange">**UPDATE PENDING**</span>
-| act.cpu_freq.hsmp.so          | Freq              | Cpu         | HSMP                 | <span style="color:orange">**UPDATE PENDING**</span>
+| act.cpu_freq.driver_acpi.so   | Freq              | Cpu         | ACPI driver          | <span style="color:orange">**OK**</span>
+| act.cpu_freq.hsmp.so          | Freq              | Cpu         | HSMP                 | <span style="color:orange">**OK**</span>
 | act.cpu_pow.msr.so            | Power             | Cpu, Socket | RAPL                 | <span style="color:green">**OK**</span>
 | act.cpu_pow.hsmp.so           | Power             | Socket      | HSMP                 | <span style="color:orange">**UPDATE PENDING**</span>
 

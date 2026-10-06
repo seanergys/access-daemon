@@ -15,7 +15,9 @@ access_easybus.so: access_easybus.c
 
 install:
 	cp -f access_easybus.h $(PREFIX)/include
+ifdef SEANERBUS_PREFIX
 	cp -f libaccess_easybus.so $(PREFIX)/lib
+endif
 
 clean:
 	rm -f $(BINS) *.o *.so

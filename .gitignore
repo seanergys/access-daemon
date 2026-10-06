@@ -3,6 +3,8 @@
 *.so
 *.idea
 
+AGENTS.md
+
 accessd
 metrics_seanerbus
 metrics_easybus
