@@ -14,6 +14,7 @@ static metrics_request_t  info;
 static sea_metric_t      *uuids[MAX_METRICS_NO];
 static int                uuids_count;
 static sea_conn_t        *conn;
+static int                is_connected;
 static sea_stat_t         st;
 static sea_err_t         *err;
 static int                fd;
@@ -194,6 +195,9 @@ plug_exit()
     timestamp_t t1;
     int o, d;
 
+    if (!is_connected) {
+        return NULL;
+    }
     seanerbus_error_destroy(err);
     for (o = 0; o < info.outputs_count; ++o) {
     for (d = 0; d < info.outputs[o].devs_count; ++d) {
