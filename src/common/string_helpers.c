@@ -54,4 +54,5 @@ int label_to_id(const char *label)
     if (is(label, MET_NAME(Get)     )) { return Get;         }
     if (is(label, MET_NAME(Set)     )) { return Set;         }
     if (is(label, MET_NAME(Info)    )) { return Info;        }
+    return 0;
 }

@@ -52,11 +52,6 @@ plug_periodic(_metrics_accumulator)
     return accumulate();
 }
 
-static void get_storage(int o)
-{
-    // TODO: use TLS to return a thread-safe copy of the values
-}
-
 plug_message_receive(_metrics_call)
 {
     static __thread metric_t *outs = NULL; // Returning data
@@ -102,7 +97,6 @@ plug_message_receive(_metrics_call)
         if (req->input.device != AllDevices &&
             req->input.metric != AllMetrics) break;
     }
-leave:
     pthread_mutex_unlock(&lock);
     return "[S]";
 }

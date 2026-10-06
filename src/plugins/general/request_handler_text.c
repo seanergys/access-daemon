@@ -70,7 +70,7 @@ static char *process_output_metrics_tochar(metrics_request_t *parsed)
 {
     int o, v, c;
 
-    memset(output_buffer, 0, sizeof(output_buffer));
+    memset(output_buffer, 0, 4096);
     // Error checking
     if (parsed->state == Error) {
         sprintf(output_buffer, "Error: %s\n", parsed->error_msg);

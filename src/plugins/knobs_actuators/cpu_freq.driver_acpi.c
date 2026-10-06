@@ -12,7 +12,6 @@
 #define PATH_SSS  "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_setspeed"
 
 static topology_t     *tp;
-static int            *fds_sgv;
 static int            *fds_sss;
 static metric_t        act;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;

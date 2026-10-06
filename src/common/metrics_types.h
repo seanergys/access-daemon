@@ -15,7 +15,6 @@
 #define MAX_METRICS_NO  64 //Maximum number of loadable metrics
 #define MAX_DEVICES_NO  2048
 #define DEVS_ALL       -1
-#define DEVS_MASK      -2
 #define MET_NAME(m)    #m
 #define VALUE_ERROR    -1
 
@@ -26,8 +25,12 @@ typedef enum {
     Error,
 } status_e;
 
+enum {
+    Nothing = -2,
+    All = DEVS_ALL,
+};
+
 typedef enum {
-    All = DEVS_ALL, // Useful for the Info command
     AllDomains = All,
     Met,
     Metric = Met,

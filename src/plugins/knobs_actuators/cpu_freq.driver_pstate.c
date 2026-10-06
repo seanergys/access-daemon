@@ -16,7 +16,6 @@
 
 static topology_t      *tp;
 static int             *fds_smf; // FD scaling max freq
-static int             *fds_sgv;
 static metric_t         act;
 static pthread_mutex_t  lock = PTHREAD_MUTEX_INITIALIZER;
 static char             default_frequency[64];

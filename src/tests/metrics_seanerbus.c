@@ -50,7 +50,7 @@ static void named(sea_conn_t *conn, sea_stat_t st, const sea_name_entry_t *entri
     size_t entries_count, const sea_err_t *error, void *udata)
 {
     protomet_t *met = udata;
-    int e, m;
+    int e;
 
     for (e = 0; e < entries_count; ++e) {
         if (is(entries[e].key.data, "Domain")) strcpy(met->domain_label, entries[e].value.data);
@@ -92,7 +92,6 @@ int main(int argc, char* argv[])
     char *address = SEA_LOCAL_ADDRESS;
     seanerbus_message_t *request = NULL;
     seanerbus_name_entry_t names[3];
-    uint64_t value[2];
     int m;
 
     // Connecting to SeanerBUS
