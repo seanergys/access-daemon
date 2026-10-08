@@ -34,6 +34,7 @@ OBJS  = \
     string_helpers.o \
     strtable.o \
     symplug.o \
+    serial_buffer.o \
     system_file.o \
     time.o \
     topology.o \

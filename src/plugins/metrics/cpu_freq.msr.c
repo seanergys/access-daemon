@@ -63,11 +63,11 @@ static void dev_acc(uint32_t cpu_min, uint32_t cpu_max)
     seconds = timestamp_fdiff(&mets[F].time, &mets[LF].time, TIME_SECS, TIME_MSECS);
     //
     for (i = cpu_min; i < cpu_max; ++i) {
-        // APERF and MPERF registers are deltas. This means time doesn't belong
-        // to this calculus: after making a difference you will get the average
-        // frequency between two specific times. But to accumulate these clocks,
-        // the time turns a requirement because if the accumulation happens
-        // every two seconds, you will have to multiplicate by 2.
+        // APERF and MPERF registers are deltas. After making a difference you
+        // will get the average frequency between two specific times, without
+        // involving a time value. But to accumulate these clocks, the time
+        // turns a requirement because if the accumulation happens every two
+        // seconds, you will have to multiplicate by 2.
         mperf_diff = overflow_magic_u64((uint64_t) registers2[i].mperf, (uint64_t) registers1[i].mperf, MAXBITS64);
         aperf_diff = overflow_magic_u64((uint64_t) registers2[i].aperf, (uint64_t) registers1[i].aperf, MAXBITS64);
         if (((uint64_t) (-1LU) / 100LU) < aperf_diff) {
@@ -166,7 +166,7 @@ static char *mets_read(void *data, uint64_t *copy)
         cpu_min = req->input.device_no;
     }
     // Computing the metric through sensor values. Potential dangers:
-    //   - When someone calls to often, the differences tighten up, and when
+    //   - When someone calls too often, the differences tighten up, and when
     //     this happens, the frequency average that is calculated after
     //     processing the APERF and MPERF may be less precise.
     while (pthread_mutex_trylock(&lock));

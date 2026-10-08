@@ -1,7 +1,8 @@
-CC               = /bin/gcc
-CC_FLAGS         = -I$(PWD)/src -I$(EAR_SRCDIR) -I$(STUBS_SRCDIR) -Wall -g
+CC              ?= /bin/gcc
+CC_FLAGS         = -I$(PWD)/src -I$(EAR_SRCDIR) -I$(STUBS_SRCDIR) -g -Wall
+CC_FLAGS        += $(EXTRA_CFLAGS)
 SRCDIR           = $(PWD)/src
-PREFIX           = /tmp/access-daemon
+PREFIX          ?= /tmp/access-daemon
 EAR_SRCDIR       = $(PWD)/external/ear/src
 STUBS_SRCDIR     = $(PWD)/external/stubs
 SEANERBUS_PREFIX = /home/jordi/Documents/opt/seanerbus
