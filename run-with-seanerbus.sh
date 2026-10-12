@@ -16,6 +16,6 @@ PLUGINS+=",act.cpu_pow.msr.so"
 
 # The missing plugins in the argument can be found in the dependency list
 # present in the code of each plugin.
-gdb --args ./src/accessd ${1} \
+./src/accessd ${1} \
     --paths=./src/plugins/general:./src/plugins/metrics:./src/plugins/knobs_actuators \
     --plugins=${PLUGINS}

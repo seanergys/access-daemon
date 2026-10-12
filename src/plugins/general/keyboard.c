@@ -4,12 +4,14 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <stdatomic.h>
 #include <plugins/general/keyboard.h>
 #include <plugins/general/request_handler.h>
 #include <plugins/general/request_handler_text.h>
 
-static pthread_t thread;
-static int is_closing;
+static atomic_int thread_finished;
+static int        thread_started;
+static pthread_t  thread;
 
 plug_identity()
 {
@@ -19,7 +21,6 @@ plug_identity()
 
 static void string_exit()
 {
-    is_closing = 1;
     plugin_manager_exit();
 }
 
@@ -34,27 +35,49 @@ static void *string_read(void *x)
     char string[1024];
     int i;
 
-    sleep(1);
-    while (!is_closing) {
+    while (1) {
         printf("Enter query: ");
         fflush(stdout);
         if ((i = scanf(" %1023[^\n]", string)) > 0) {
             if (is(string, "exit") || is(string, "quit") || is(string, "q")) {
-                string_exit();
-            } else {
-                req.input = string;
-                plug_message_send("received_request_text", (void *) &req);
-                printf("%s", req.output);
+                break;
             }
+            req.input = string;
+            plug_message_send("received_request_text", (void *) &req);
+            // Printing the output which is already converted into string
+            printf("%s", req.output);
+        } else if (i == EOF) {
+            break;
         }
     }
-    // Waiting here until the parent dies
-    while (is_closing);
+    thread_finished = 1;
+    string_exit();
     return NULL;
 }
 
-plug_init(_keyboard)
+plug_init_post(_keyboard)
 {
-    pthread_create(&thread, NULL, string_read, NULL);
+    int rc;
+    if ((rc = pthread_create(&thread, NULL, string_read, NULL)) != 0) {
+        return "[D] Failed to create keyboard thread";
+    }
+    thread_started = 1;
+    return NULL;
+}
+
+plug_exit()
+{
+    int rc;
+    if (!thread_started) {
+        return NULL;
+    }
+    // Wake a reader blocked on stdin when shutdown comes from another thread.
+    if (!thread_finished && (rc = pthread_cancel(thread)) != 0) {
+        return "Failed to cancel keyboard thread";
+    }
+    if ((rc = pthread_join(thread, NULL)) != 0) {
+        return "Failed to join keyboard thread";
+    }
+    thread_started = 0;
     return NULL;
 }

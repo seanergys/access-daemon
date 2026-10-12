@@ -3,7 +3,8 @@ BINS = accessd
 all: all.sub-folders accessd
 
 accessd: access_daemon.c
-	$(CC) $(CFLAGS) -I$(EAR_SRCDIR) -o $@ $^ -L$(SRCDIR)/common -lcommon -lpthread -ldl -lm
+	$(CC) $(CPPFLAGS) $(CFLAGS) -I$(EAR_SRCDIR) -o $@ $< \
+	    $(LDFLAGS) -L$(SRCDIR)/common -lcommon -lpthread -ldl -lm
 
 install: install.sub-folders
 	cp $(BINS) $(PREFIX)/sbin

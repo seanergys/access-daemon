@@ -3,6 +3,7 @@
 export LD_LIBRARY_PATH=./src/common
 
 PLUGINS="keyboard.so"
+PLUGINS+=",eard_impostor.so"
 PLUGINS+=",request_handler.so"
 PLUGINS+=",request_handler_text.so"
 PLUGINS+=",metrics_accumulator.so:1000" #Not mandatory

@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include <pwd.h>
 #include <poll.h>
 #include <stdio.h>
 #include <errno.h>
@@ -10,6 +11,7 @@
 #include <pthread.h>
 #include <sys/stat.h>
 #include <common/metrics_types.h>
+#include <common/system/folder.c>
 #include <plugins/general/eard_impostor.h>
 
 typedef struct eard_client_s {
@@ -79,6 +81,7 @@ static int fifo_open(const char *path, int flags)
 
 plug_init(_eard_impostor)
 {
+    struct passwd *pwd;
     char *error = NULL;
     int n, i;
 
@@ -86,16 +89,15 @@ plug_init(_eard_impostor)
         clients[i] = (eard_client_t) { .req_fd = -1, .ack_fd = -1 };
     }
     if ((ear_tmp = getenv("EAR_TMP")) == NULL) {
-        ear_tmp = "/tmp/access-daemon/eard";
+        ear_tmp = "/tmp/accessd";
     }
-    // Creating folder
-    mkdir(ear_tmp, S_IRWXU | S_IRWXG | S_IRWXO);
-    chmod(ear_tmp, S_IRWXU | S_IRWXG | S_IRWXO);
-    // Using global path buffer for a bit
+    // Creating TMP folder plus anonymous apps (and using global path for a bit)
+    if ((pwd = getpwuid(getuid())) == NULL) {
+        return "[X] can not obtain user ID";
+    }
     sprintf(global_path, "%s/0", ear_tmp);
-    mkdir(global_path, S_IRWXU | S_IRWXG | S_IRWXO);
-    chmod(global_path, S_IRWXU | S_IRWXG | S_IRWXO);
-    //
+    ear_create_tmp(global_path, pwd->pw_name);
+    // Recovering true global path
     n = snprintf(global_path, sizeof(global_path), "%s/.ear_comm.globalreq", ear_tmp);
     if (n < 0 || (size_t) n >= sizeof(global_path)) {
         return "[X] EAR_TMP path is too long";

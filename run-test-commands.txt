@@ -1,0 +1,3 @@
+all all all all info
+met all all all get
+quit

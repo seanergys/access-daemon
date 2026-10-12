@@ -9,7 +9,7 @@ BINS  = \
 all: $(BINS)
 
 %.so: %.c
-	$(CC) $(CC_FLAGS) -fPIC -shared -o act.$@ $^
+	$(CC) $(CPPFLAGS) $(CFLAGS) -fPIC -shared -o act.$@ $< $(LDFLAGS)
 
 install:
 	mkdir -p $(PREFIX)/lib/plugins/actuators

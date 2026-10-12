@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <common/system/time.h>
 #include <plugins/general/topology_ext.h>
 #include <management/cpufreq/cpufreq_base.h>
 
@@ -9,6 +10,13 @@ plug_identity()
 {
     *tag       = "topology_ext";
     *tags_deps = NULL;
+}
+
+void stress_spin(ullong ms)
+{
+    timestamp_t time;
+    timestamp_getfast(&time);
+    while (timestamp_diffnow(&time, TIME_MSECS) < ms);
 }
 
 plug_init(_topology_ext)

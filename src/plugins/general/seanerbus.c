@@ -27,13 +27,13 @@ plug_identity()
 
 #define sea(f, ...) \
     if ((st = seanerbus_ ## f(__VA_ARGS__, &err)) != SEANERBUS_STATUS_OK) { \
-        return rsprintf("[X] SeanerBUS error %d during %s: %s\n", \
+        return rsprintf("[X] SeanerBUS error %d during %s: %s", \
             st, #f, seanerbus_error_message(err)); \
     }
 
 #define sea_cb(f, ...) \
     if ((st = seanerbus_ ## f(__VA_ARGS__, &err)) != SEANERBUS_STATUS_OK) { \
-        printf("[X] SeanerBUS error %d during %s: %s\n", \
+        printf("[X] SeanerBUS error %d during %s: %s", \
             st, #f, seanerbus_error_message(err)); \
         goto cleanup; \
     }

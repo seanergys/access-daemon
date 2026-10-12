@@ -1,47 +1,86 @@
-image: debian:bookworm-slim
+stages:
+  - build
+  - test
 
 variables:
   GIT_SUBMODULE_FORCE_HTTPS: "true"
-  GIT_SUBMODULE_STRATEGY:    recursive
+  GIT_SUBMODULE_STRATEGY: "recursive"
 
-build_and_check_install:
+default:
+  image: debian:bookworm
+
+.build_base:
   stage: build
   before_script:
     - apt-get update
-    - apt-get install -y --no-install-recommends build-essential
+    - apt-get install -y --no-install-recommends
+      make
+      gcc
+      clang
+      libc6-dev
+      uuid-dev
+
+build:gcc:
+  extends: .build_base
   script:
-    # Command-line assignments override the local paths in the root Makefile.
-    - make SEANERBUS_PREFIX= clean
-    - make SEANERBUS_PREFIX=
-    - make SEANERBUS_PREFIX= PREFIX="$CI_PROJECT_DIR/installed" install
-    - |
-      set -eu
-      for installed_file in \
-          sbin/accessd \
-          etc/run.sh \
-          include/metrics_types.h \
-          include/access_easybus.h \
-          lib/libcommon.so \
-          lib/plugins/keyboard.so \
-          lib/plugins/metrics_accumulator.so \
-          lib/plugins/metrics_caller.so \
-          lib/plugins/request_handler.so \
-          lib/plugins/request_handler_text.so \
-          lib/plugins/topology_ext.so \
-          lib/plugins/metrics/met.cpu_freq.msr.so \
-          lib/plugins/metrics/met.cpu_pow.msr.so \
-          lib/plugins/actuators/act.cpu_freq.hsmp.so \
-          lib/plugins/actuators/act.cpu_freq.driver_pstate.so \
-          lib/plugins/actuators/act.cpu_freq.driver_acpi.so \
-          lib/plugins/actuators/act.cpu_freq.driver_governor.so \
-          lib/plugins/actuators/act.cpu_pow.msr.so \
-          lib/plugins/actuators/act.cpu_pow.hsmp.so
-      do
-          if [ ! -s "$CI_PROJECT_DIR/installed/$installed_file" ]; then
-              echo "Missing or empty installed file: $installed_file" >&2
-              exit 1
-          fi
-      done
-      test -x "$CI_PROJECT_DIR/installed/sbin/accessd"
-      test ! -e "$CI_PROJECT_DIR/installed/lib/libaccess_easybus.so"
-      test ! -e "$CI_PROJECT_DIR/installed/lib/plugins/seanerbus.so"
+    - make clean
+    - make CC=gcc
+
+build:clang:
+  extends: .build_base
+  script:
+    - make CC=clang
+
+build:gcc-extra:
+  extends: .build_base
+  script:
+    - make CC=gcc EXTRA_CFLAGS="-Wextra -Werror -Wno-unused-parameter
+      -Wno-sign-compare -Wno-missing-field-initializers -Wno-enum-conversion"
+
+.test_base:
+  stage: test
+
+  before_script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends
+      make
+      gcc
+      libc6-dev
+      uuid-dev
+      valgrind
+
+test:valgrind:
+  extends: .test_base
+
+  variables:
+    EXEC_PREFIX: >-
+      valgrind
+      --tool=memcheck
+      --leak-check=full
+      --show-leak-kinds=all
+      --track-origins=yes
+      --error-exitcode=99
+
+  script:
+    - make CC=gcc
+    - timeout 30s ./run-test.sh < ./run-test-commands.txt
+
+test:sanitizers:
+  extends: .test_base
+
+  variables:
+    EXTRA_CFLAGS: >-
+      -O1
+      -fsanitize=address,undefined
+      -fno-omit-frame-pointer
+      -fno-sanitize-recover=all
+
+    EXTRA_LDFLAGS: >-
+      -fsanitize=address,undefined
+
+    ASAN_OPTIONS: "detect_leaks=1:halt_on_error=1"
+    UBSAN_OPTIONS: "print_stacktrace=1:halt_on_error=1"
+
+  script:
+    - make CC=gcc EXTRA_CFLAGS="$EXTRA_CFLAGS" EXTRA_LDFLAGS="$EXTRA_LDFLAGS"
+    - timeout 30s ./run-test.sh < ./run-test-commands.txt

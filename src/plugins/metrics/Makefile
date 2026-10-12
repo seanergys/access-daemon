@@ -1,11 +1,12 @@
 BINS  = \
+    cpu_freq.fake.so \
     cpu_freq.msr.so \
     cpu_pow.msr.so
 
 all: $(BINS)
 
 %.so: %.c
-	$(CC) $(CC_FLAGS) -fPIC -shared -o met.$@ $^
+	$(CC) $(CPPFLAGS) $(CFLAGS) -fPIC -shared -o met.$@ $< $(LDFLAGS)
 
 install:
 	mkdir -p $(PREFIX)/lib/plugins/metrics

@@ -1,23 +1,18 @@
-SEA_CFLAGS   = -I$(SEANERBUS_PREFIX)/include
-SEA_LDFLAGS  = -L$(SEANERBUS_PREFIX)/lib/ -lseanerbus_c -lseanerbus
-EASY_CFLAGS  =
-EASY_LDFLAGS = $(SEA_LDFLAGS) -L$(SRCDIR)/libraries -laccess_easybus
-
-ifdef SEANERBUS_PREFIX
+ifdef SEABUS_PREFIX
 BINS += metrics_seanerbus \
         metrics_easybus
 endif
 
 all: $(BINS)
 
-%: %.c
-	$(CC) $(CC_FLAGS) -o $@ $^
-
 metrics_seanerbus: metrics_seanerbus.c
-	$(CC) $(CC_FLAGS) -I../common/ $(SEA_CFLAGS) -o $@ $^ $(SEA_LDFLAGS)
+	$(CC) $(CPPFLAGS) $(SEABUS_CPPFLAGS) $(CFLAGS) -I../common/ -o $@ $< \
+	    $(LDFLAGS) $(SEABUS_LDFLAGS) -lseanerbus
 
 metrics_easybus: metrics_easybus.c
-	$(CC) $(CC_FLAGS) -I../common/ -o $@ $^ $(EASY_LDFLAGS) $(SRCDIR)/common/libcommon.a -lm
+	$(CC) $(CPPFLAGS) $(CFLAGS) -I../common/ -o $@ $< $(LDFLAGS) \
+	    -L$(SRCDIR)/libraries -laccess_easybus $(SRCDIR)/common/libcommon.a -lm \
+	    $(SEABUS_LDFLAGS)
 
 install: ;
 
