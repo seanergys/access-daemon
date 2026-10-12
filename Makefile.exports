@@ -1,7 +1,11 @@
 export CC
-export CC_FLAGS
+export CPPFLAGS
+export CFLAGS
+export LDFLAGS
 export SRCDIR
 export PREFIX
 export EAR_SRCDIR
 export STUBS_SRCDIR
-export SEANERBUS_PREFIX
+export SEABUS_PREFIX
+export SEABUS_CPPFLAGS
+export SEABUS_LDFLAGS

@@ -29,6 +29,7 @@ OBJS  = \
     plugin_manager_internal.o \
     pci.o \
     poll.o \
+    random.o \
     string.o \
     string_enhanced.o \
     string_helpers.o \
@@ -46,16 +47,16 @@ all: libcommon.so libcommon.a
 	rm -f *.o
 
 %.o: %.c %.h
-	$(CC) $(CC_FLAGS) -fPIC -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -fPIC -c $<
 
 plugin_manager_internal.o: plugin_manager_internal.c plugin_manager_internal.h
-	$(CC) $(CC_FLAGS) -fPIC -DSEPARATOR="','" -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -fPIC -DSEPARATOR="','" -c $<
 
 libcommon.a: $(OBJS)
 	$(AR) rvs $@ $(OBJS)
 
 libcommon.so: $(OBJS)
-	$(CC) $(CC_FLAGS) -shared -o $@ $(OBJS)
+	$(CC) -shared -o $@ $(OBJS) $(LDFLAGS)
 
 install:
 	cp -f metrics_types.h $(PREFIX)/include
