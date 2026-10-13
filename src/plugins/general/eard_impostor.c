@@ -10,8 +10,11 @@
 #include <string.h>
 #include <pthread.h>
 #include <sys/stat.h>
+#include <common/system/time.h>
 #include <common/metrics_types.h>
 #include <common/system/folder.c>
+#include <metrics/energy/cpu/intel63.h>
+#include <plugins/general/topology_ext.h>
 #include <plugins/general/eard_impostor.h>
 
 typedef struct eard_client_s {
@@ -26,11 +29,12 @@ static int              global_fd = -1;
 static eard_client_t    clients[EARD_ADAPTER_MAX_CLIENTS];
 static const char      *ear_tmp;
 static pthread_mutex_t  lock = PTHREAD_MUTEX_INITIALIZER;
+static topology_ext_t  *tp_ext;
 
 plug_identity()
 {
     *tag       = "eard_impostor";
-    *tags_deps = NULL;
+    *tags_deps = "topology_ext";
 }
 
 static void client_close(eard_client_t *client, char *because)
@@ -119,6 +123,12 @@ plug_init(_eard_impostor)
     return error;
 }
 
+plug_init(_topology_ext)
+{
+    tp_ext = (topology_ext_t *) data;
+    return NULL;
+}
+
 static eard_client_t *client_find(int fd)
 {
     int i;
@@ -151,7 +161,6 @@ static void client_connect(const daemon_req_t *request)
     if (request->req_service != CONNECT_EARD_NODE_SERVICES) {
         return;
     }
-    printf("Connected\n");
     if ((client = client_find(-1)) == NULL) {
         fprintf(stderr, "eard_impostor: no free connection slots\n");
         return;
@@ -211,6 +220,31 @@ static int data_write(int fd, char *data, size_t size)
     return pending == 0;
 }
 
+static int cpu_freq_special_case(eard_head_t *head, char *buffer, metrics_request_t *req)
+{
+    static struct cpu_freq_s {
+        uint64_t aperf;
+        uint64_t mperf;
+        uint32_t state;
+    } *cpu_freq = NULL;
+    timestamp_t time;
+    int i;
+
+    if (cpu_freq == NULL) {
+        cpu_freq = calloc(tp_ext->tp.cpu_count, sizeof(struct cpu_freq_s));
+    }
+    timestamp_get(&time);
+    head->state = EAR_SUCCESS;
+    head->size  = sizeof(struct cpu_freq_s)*tp_ext->tp.cpu_count;
+    memset(cpu_freq, 0, head->size); \
+    for (i = 0; i < req->outputs[0].values_count; i++) {
+        cpu_freq[i].aperf = req->outputs[0].values[i] / tp_ext->base_frequency;
+        cpu_freq[i].mperf = (uint64_t) time.tv_sec;
+    }
+    memcpy(buffer, cpu_freq, head->size);
+    return 1;
+}
+
 static int translate_rpc(eard_head_t *head, char *buffer)
 {
     static serial_buffer_t serial = {0};
@@ -238,14 +272,44 @@ static int translate_rpc(eard_head_t *head, char *buffer)
         case RPC_MET_CPUFREQ_GET_API:
             return_bufcpy(&api, sizeof(uint));
         case RPC_MET_CPUFREQ_GET_CURRENT:
-            request(Met, Freq, Cpu, All, Get);
-            return_bufcpy(req.outputs[0].values, sizeof(uint64_t)*req.outputs[0].values_count);
+            request(Met, AccFreq, Cpu, All, Get);
+            return cpu_freq_special_case(head, buffer, &req);
         default:
             error = "EARD RPC is not implemented by eard_impostor";
             break;
     }
     head->state = EAR_ERROR;
     strcpy(buffer, error);
+    return 1;
+}
+
+static int translate_old(eard_head_t *head, char *buffer)
+{
+    ulong *ack = (ulong *) buffer;
+
+    head->state = EAR_SUCCESS;
+    head->size = sizeof(*ack);
+    *ack = 0;
+
+    switch (head->req_service) {
+        case DATA_SIZE_RAPL:
+            *ack = sizeof(ullong) * RAPL_POWER_EVS * tp_ext->tp.socket_count;
+            break;
+        case READ_RAPL:
+            head->size = sizeof(ullong) * RAPL_POWER_EVS * tp_ext->tp.socket_count;
+            memset(buffer, 0, head->size);
+        case ENERGY_FREQ:
+            *ack = 10000000;
+            break;
+        case GPU_SUPPORTED:
+        case WRITE_APP_SIGNATURE:
+        case WRITE_WF_APP_SIGNATURE:
+        case WRITE_LOOP_SIGNATURE:
+        case WRITE_EVENT:
+            break;
+        default:
+            return 0;
+    }
     return 1;
 }
 
@@ -262,7 +326,6 @@ static int client_handle(eard_client_t *client, short events)
     static char *buffer = NULL;
     eard_head_t *head = NULL;
     size_t remaining = 0;
-    uint64_t zero = 0;
 
     if (buffer == NULL) {
         if ((buffer = calloc(buffer_size, sizeof(char))) == NULL) {
@@ -292,13 +355,17 @@ static int client_handle(eard_client_t *client, short events)
         buffer_size = remaining+sizeof(eard_head_t);
     }
     // Reading the remaining data
-    if (!data_read(client->req_fd, buffer, remaining)) {
+    if (!data_read(client->req_fd, buffer+sizeof(eard_head_t), remaining)) {
         return adapter_error("request read failed or EOF");
     }
     // Old services
     if (head->req_service < NEW_API_SERVICES) {
-        return data_write(client->ack_fd, (char *) &zero, sizeof(zero));
+        if (!translate_old(head, &buffer[sizeof(eard_head_t)])) {
+            return adapter_error("legacy service is not implemented");
+        }
+        return data_write(client->ack_fd, &buffer[sizeof(eard_head_t)], head->size);
     }
+    // New services
     if (!translate_rpc(head, &buffer[sizeof(eard_head_t)])) {
         return adapter_error("disconnected or translation error");
     }
@@ -310,6 +377,7 @@ plug_poll_attend(_request)
     eard_client_t *client;
 
     pthread_mutex_lock(&lock);
+    // TODO: return errors message
     if (global_fd >= 0) {
         // If is the global descriptor which is receiving data
         if (pfd->fd == global_fd && (pfd->revents & POLLIN)) {
