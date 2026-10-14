@@ -131,9 +131,9 @@ static void discovered(sea_conn_t *conn, sea_stat_t st, const sea_addr_t *const 
     // This function receives an array of discovered addresses that matched the
     // parameters you used in the resolve function.
     for (i = 0; i < addrs_count; ++i) {
-        sea(address_clone, addrs[i], &seas[seas_count].addr);
+        sea(entity_clone, addrs[i], &seas[seas_count].addr);
         // Saving the UUID for debugging purposes
-        sea(address_to_string, addrs[i], seas[seas_count].uuid_str, 37, &size);
+        sea(entity_to_string, addrs[i], seas[seas_count].uuid_str, 37, &size);
         // For every UUID/address discovered, their labels are requested.
         sea(reverse_resolve, conn, seas[seas_count].addr, named, &seas[seas_count]);
         seas_count++;
@@ -191,8 +191,8 @@ static void discovered_global(sea_conn_t *conn, sea_stat_t st, const sea_addr_t 
         debug("Error: no addresses registered");
         return;
     }
-    sea(address_clone, addrs[0], &addr);
-    sea(address_to_string, addrs[0], uuid_str, 37, &size);
+    sea(entity_clone, addrs[0], &addr);
+    sea(entity_to_string, addrs[0], uuid_str, 37, &size);
     // Trying to resolve the address of the SEA_UUIDS_COUNTER
     sea(reverse_resolve, conn, addr, named_global, udata);
 cleanup:

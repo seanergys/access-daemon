@@ -18,7 +18,7 @@
 // Short names
 typedef seanerbus_name_entry_t sea_name_entry_t;
 typedef seanerbus_connection_t sea_conn_t;
-typedef seanerbus_address_t    sea_addr_t;
+typedef seanerbus_entity_t    sea_addr_t;
 typedef seanerbus_message_t    sea_msg_t;
 typedef seanerbus_status_t     sea_stat_t;
 typedef seanerbus_error_t      sea_err_t;

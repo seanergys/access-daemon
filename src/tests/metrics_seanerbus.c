@@ -39,8 +39,8 @@ static void discovered(sea_conn_t *conn, sea_stat_t st,
     int i;
 
     for (i = 0; i < addrs_count; ++i) {
-        sea(address_clone, addrs[i], &mets[mets_count].addr);
-        sea(address_to_string, addrs[i], mets[mets_count].uuid, 37, &size);
+        sea(entity_clone, addrs[i], &mets[mets_count].addr);
+        sea(entity_to_string, addrs[i], mets[mets_count].uuid, 37, &size);
         printf("Discovered %s\n", mets[mets_count].uuid);
         mets_count++;
     }
