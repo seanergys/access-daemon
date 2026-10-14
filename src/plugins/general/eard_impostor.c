@@ -298,6 +298,7 @@ static int translate_old(eard_head_t *head, char *buffer)
         case READ_RAPL:
             head->size = sizeof(ullong) * RAPL_POWER_EVS * tp_ext->tp.socket_count;
             memset(buffer, 0, head->size);
+            break;
         case ENERGY_FREQ:
             *ack = 10000000;
             break;
