@@ -153,7 +153,7 @@ plug_init_post(_seanerbus)
             #define build_endpoint(met) \
                 uuid_generate_random(met.uuid); \
                 uuid_unparse_lower(met.uuid, met.uuid_str); \
-                sea(address_create_from_string, met.uuid_str, &met.addr); \
+                sea(entity_create_from_string, met.uuid_str, &met.addr); \
                 sea(connection_register_endpoint, conn, met.addr, requested, &met);
             build_endpoint(uuids[o][d]);
             // Registering the UUIDs per end-point
@@ -221,7 +221,7 @@ plug_exit()
     seanerbus_connection_destroy(conn);
     for (o = 0; o < uuids_count; ++o) {
     for (d = 0; d < info.outputs[o].devs_count; ++d) {
-        seanerbus_address_destroy(uuids[o][d].addr);
+        seanerbus_entity_destroy(uuids[o][d].addr);
     }}
     pthread_mutex_unlock(&lock_conn);
     return NULL;
