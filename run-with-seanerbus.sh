@@ -2,8 +2,8 @@
 
 export LD_LIBRARY_PATH=./src/common:/home/jordi/Documents/opt/seanerbus/lib
 
-PLUGINS="keyboard.so"
-PLUGINS+=",seanerbus.so"
+PLUGINS="seanerbus.so"
+PLUGINS+=",keyboard.so"
 PLUGINS+=",request_handler.so"
 PLUGINS+=",request_handler_text.so"
 PLUGINS+=",metrics_accumulator.so:1000" #Optional

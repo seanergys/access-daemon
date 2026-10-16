@@ -10,6 +10,9 @@ STUBS_SRCDIR     = $(PWD)/external/stubs
 #SEABUS_PREFIX   = /home/jordi/Documents/opt/seanerbus
 SEABUS_CPPFLAGS  = -I$(SEABUS_PREFIX)/include
 SEABUS_LDFLAGS   = -L$(SEABUS_PREFIX)/lib/ -lseanerbus_c -lseanerbus -luuid
+NVML_PREFIX      =
+NVML_CPPFLAGS    = -I$(NVML_PREFIX)/include
+NVML_LDFLAGS     = -L$(NVML_PREFIX)/lib/ -lnmvl
 
 all:
 	@ $(MAKE) -C 'src' all || exit

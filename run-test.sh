@@ -4,13 +4,15 @@ set -euo pipefail # Fail on error, fail on undefined var,
 
 export LD_LIBRARY_PATH="./src/common${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" # Expand
 
-PLUGINS="keyboard.so"
-PLUGINS+=",eard_impostor.so"
+PLUGINS+=",keyboard.so"
 PLUGINS+=",request_handler.so"
 PLUGINS+=",request_handler_text.so"
-PLUGINS+=",metrics_accumulator.so:1000" # Not mandatory
+PLUGINS+=",metrics_accumulator.so:1000" #Optional
 PLUGINS+=",metrics_caller.so"
-PLUGINS+=",met.cpu_freq.fake.so"
+PLUGINS+=",met.gpu.nvml.so"
+PLUGINS+=",met.cpu_freq.msr.so"
+PLUGINS+=",met.cpu_pow.msr.so"
+PLUGINS+=",act.cpu_pow.msr.so"
 
 # Converting ${EXEC_PREFIX} variable into a command
 PREFIX=()

@@ -1,0 +1,7 @@
+git submodule update --remote external/ear
+git add external/ear
+git commit -m "Update external/ear submodule"
+git push
+
+git pull
+git submodule update --init external/ear

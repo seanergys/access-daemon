@@ -8,3 +8,4 @@ clean: clean.sub-folders
 	@ $(MAKE) -C 'general' $* || exit
 	@ $(MAKE) -C 'knobs_actuators' $* || exit
 	@ $(MAKE) -C 'metrics' $* || exit
+	@ $(MAKE) -C 'preloads' $* || exit

@@ -1,6 +1,7 @@
 *.o
 *.a
 *.so
+*.so.1
 *.idea
 
 AGENTS.md
@@ -8,3 +9,4 @@ AGENTS.md
 accessd
 metrics_seanerbus
 metrics_easybus
+msr_sim

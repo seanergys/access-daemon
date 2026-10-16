@@ -1,7 +1,8 @@
 BINS  = \
     cpu_freq.fake.so \
     cpu_freq.msr.so \
-    cpu_pow.msr.so
+    cpu_pow.msr.so \
+    gpu.nvml.so
 
 all: $(BINS)
 

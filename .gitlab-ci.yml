@@ -63,7 +63,8 @@ test:valgrind:
 
   script:
     - make CC=gcc
-    - timeout 30s ./run-test.sh < ./run-test-commands.txt
+    - LD_PRELOAD="$CI_PROJECT_DIR/src/plugins/preloads/libsim-msr.so:$CI_PROJECT_DIR/src/plugins/preloads/libsim-nvml.so"
+      timeout 30s ./run-test.sh < ./run-test-commands.txt
 
 test:sanitizers:
   extends: .test_base
@@ -83,4 +84,5 @@ test:sanitizers:
 
   script:
     - make CC=gcc EXTRA_CFLAGS="$EXTRA_CFLAGS" EXTRA_LDFLAGS="$EXTRA_LDFLAGS"
-    - timeout 30s ./run-test.sh < ./run-test-commands.txt
+    - LD_PRELOAD="$(gcc -print-file-name=libasan.so):$CI_PROJECT_DIR/src/plugins/preloads/libsim-msr.so:$CI_PROJECT_DIR/src/plugins/preloads/libsim-nvml.so"
+      timeout 30s ./run-test.sh < ./run-test-commands.txt
