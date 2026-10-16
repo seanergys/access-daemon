@@ -24,6 +24,7 @@ OBJS  = \
     monitor.o \
     msr.o \
     mrs.o \
+    nvml.o \
     overhead.o \
     plugin_manager.o \
     plugin_manager_internal.o \
@@ -48,6 +49,9 @@ all: libcommon.so libcommon.a
 
 %.o: %.c %.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) -fPIC -c $<
+
+nvml.o: nvml.c nvml.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) -DEAR_INSTALL_PATH="" -fPIC -c $<
 
 plugin_manager_internal.o: plugin_manager_internal.c plugin_manager_internal.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) -fPIC -DSEPARATOR="','" -c $<

@@ -178,6 +178,7 @@ plug_init_post(_seanerbus)
     sea(connection_get_fd, conn, &fd);
     // The framework internal poll thread takes the control of that file descriptor
     plugin_manager_poll_add("seanerbus", "connection_handling", fd);
+    is_connected = 1;
     return NULL;
 }
 
@@ -198,6 +199,7 @@ plug_exit()
     if (!is_connected) {
         return NULL;
     }
+    printf("Exitting");
     seanerbus_error_destroy(err);
     for (o = 0; o < info.outputs_count; ++o) {
     for (d = 0; d < info.outputs[o].devs_count; ++d) {
