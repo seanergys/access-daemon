@@ -114,13 +114,14 @@ plug_message_receive(_act_all_all_get)
 
 plug_message_receive(_act_freq_cpu_set)
 {
-    char freq_str[16]; // Enough for a frequency in Hz
+    char freq_str[32]; // Enough for a frequency in Hz
     metrics_request_t *req = (metrics_request_t *) data;
-    metric_t   *act = &req->input;
+    metric_t *act = &req->input;
     uint32_t cpu;
 
     if (act->device_no >= tp->cpu_count || act->device_no < DEVS_ALL) {
-        return "[X] Invalid device";
+        req->state = Error, req->error_msg = "Invalid device number";
+        return NULL;
     }
     // Fixing values count
     if (act->values_count > tp->cpu_count) {
@@ -131,7 +132,7 @@ plug_message_receive(_act_freq_cpu_set)
     if (act->device_no == DEVS_ALL && act->values_count == 1) {
         // TODO: validate if the frequency is in the range
         sprintf(freq_str, "%lu", act->values[0]);
-        filemagic_word_mwrite(fds_smf, tp->cpu_count, freq_str, 1);
+        //filemagic_word_mwrite(fds_smf, tp->cpu_count, freq_str, 1);
         return NULL;
     }
     // Here, values_count is equal or less than cpu_count
@@ -141,10 +142,10 @@ plug_message_receive(_act_freq_cpu_set)
         act->device_no = 0;
     }
     // If all devices, but multiple values, we write them in order
-    for (cpu = act->device; cpu < act->values_count; ++cpu) {
+    for (cpu = act->device_no; cpu < act->values_count; ++cpu) {
         // TODO: validate if the frequency is in the range
         sprintf(freq_str, "%lu", act->values[cpu]);
-        filemagic_word_write(fds_smf[cpu], freq_str, strlen(freq_str), 1);
+        //filemagic_word_write(fds_smf[cpu], freq_str, strlen(freq_str), 1);
     }
     return NULL;
 }

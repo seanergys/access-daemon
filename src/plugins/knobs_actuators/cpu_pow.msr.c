@@ -8,9 +8,10 @@
 #include <management/cpupow/archs/intel63.c>
 
 typedef struct dev_ctx_s {
-    metric_t  met;
-    uint8_t   dev_cpupow; // Device of the EAR CPUPOW API
-    uint32_t *temporal_values; // EAR uses integers
+    metric_t      met;
+    uint8_t       dev_cpupow; // Device of the EAR CPUPOW API
+    uint32_t     *temporal_values; // EAR uses integers
+    pthread_key_t copy_key;
 } dev_ctx_t;
 
 static topology_t      *tp;
@@ -56,6 +57,9 @@ plug_init(_topology_ext)
     ctxs[CPUPOW_CORE].met.granul_name    = (!core_scope)? MET_NAME(Socket): MET_NAME(Core);
     // Allocations
     for (i = 0; i < CPUPOW_DOMAINS; ++i) {
+        if (pthread_key_create(&ctxs[i].copy_key, free) != 0) {
+            return "[X] Failed to create CPU power output key";
+        }
         ctxs[i].met.domain      = Actuator;
         ctxs[i].met.domain_name = MET_NAME(Actuator);
         ctxs[i].met.metric      = Power;
@@ -64,6 +68,9 @@ plug_init(_topology_ext)
         ctxs[i].met.values      = calloc(ctxs[i].met.devs_count, sizeof(uint64_t));
         ctxs[i].temporal_values = calloc(ctxs[i].met.devs_count, sizeof(uint32_t));
         ctxs[i].dev_cpupow      = i;
+        if (ctxs[i].met.values == NULL || ctxs[i].temporal_values == NULL) {
+            return "[X] memory can't be allocated";
+        }
     }
     return NULL;
 }
@@ -80,20 +87,23 @@ static void act_copy(metric_t *out, metric_t *act, uint64_t *copy, int cpu_min, 
 static char *acts_read(void *data, dev_ctx_t *ctx, uint64_t *copy)
 {
     metrics_request_t *req = (metrics_request_t *) data;
-    metric_t          *inp = &req->input;
-    int o       = req->outputs_count;
-    int cpu_max = ctx->met.devs_count;
-    int cpu_min = 0;
-    int cpu     = 0;
+    metric_t *inp = &req->input;
+    int cpu_max   = ctx->met.devs_count;
+    int cpu_min   = 0;
+    int o         = req->outputs_count;
+    int cpu       = 0;
 
-    memset(ctx->temporal_values, 0, sizeof(uint)*tp->cpu_count);
     if (inp->device_no != DEVS_ALL) {
         cpu_max = inp->device_no + 1;
         cpu_min = inp->device_no;
     }
     // Reading the values
     while (pthread_mutex_trylock(&lock));
-    ops.powercap_get(ctx->dev_cpupow, (uint *) ctx->temporal_values);
+    memset(ctx->met.values     , 0, sizeof(uint64_t)*tp->cpu_count);
+    memset(ctx->temporal_values, 0, sizeof(uint32_t)*tp->cpu_count);
+    if (state_fail(ops.powercap_get(ctx->dev_cpupow, (uint *) ctx->temporal_values))) {
+        ctx->met.state = Error, ctx->met.error_msg = state_msg;
+    }
     for (cpu = cpu_min; cpu < cpu_max; ++cpu) {
         ctx->met.values[cpu] = (uint64_t) ctx->temporal_values[cpu];
     }
@@ -106,12 +116,18 @@ static char *acts_read(void *data, dev_ctx_t *ctx, uint64_t *copy)
 
 static char *acts_return(void *data, uint dev)
 {
-    static __thread uint64_t *copy[CPUPOW_DOMAINS] = {0};
-    // Each thread here will have its own copy of values.
-    if (copy[dev] == NULL) {
-        copy[dev] = calloc(ctxs[dev].met.devs_count, sizeof(uint64_t));
+    uint64_t *copy;
+    // Each thread owns its returned values until its next call or exit.
+    if ((copy = pthread_getspecific(ctxs[dev].copy_key)) == NULL) {
+        if ((copy = calloc(ctxs[dev].met.devs_count, sizeof(uint64_t))) == NULL) {
+            return "[X] memory can't be allocated";
+        }
+        if (pthread_setspecific(ctxs[dev].copy_key, copy) != 0) {
+            free(copy);
+            return "[X] Failed to store CPU power outputs";
+        }
     }
-    return acts_read(data, &ctxs[dev], copy[dev]);
+    return acts_read(data, &ctxs[dev], copy);
 }
 
 plug_message_receive(_act_pow_socket_get)
@@ -169,7 +185,9 @@ static char *acts_write(void *data, dev_ctx_t *ctx)
         for (cpu = cpu_min; cpu < cpu_max; ++cpu) {
             ctx->temporal_values[cpu] = (uint32_t) act->values[0];
         }
-        ops.powercap_set(ctx->dev_cpupow, ctx->temporal_values);
+        if (state_fail(ops.powercap_set(ctx->dev_cpupow, ctx->temporal_values))) {
+            req->state = Error, req->error_msg = state_msg;
+        }
         return NULL;
     }
     // If received 'all devices', but multiple values, we write them in order
@@ -177,7 +195,9 @@ static char *acts_write(void *data, dev_ctx_t *ctx)
         ctx->temporal_values[cpu] = (uint32_t) act->values[cpu];
         printf("ops.powercap_set(%d, %u)\n", cpu, (uint32_t) act->values[cpu]);
     }
-    ops.powercap_set(ctx->dev_cpupow, (uint *) ctx->temporal_values);
+    if (state_fail(ops.powercap_set(ctx->dev_cpupow, (uint *) ctx->temporal_values))) {
+        req->state = Error, req->error_msg = state_msg;
+    }
     return NULL;
 }
 
@@ -193,14 +213,20 @@ plug_message_receive(_act_pow_cpu_set)
 
 plug_message_receive(_act_pow_socket_reset)
 {
-    ops.powercap_reset(ctxs[CPUPOW_SOCKET].dev_cpupow);
+    metrics_request_t *req = (metrics_request_t *) data;
+    // TODO: add the capacity to reset specific devices within a domain
+    if (state_fail(ops.powercap_reset(ctxs[CPUPOW_SOCKET].dev_cpupow))) {
+        req->state = Error, req->error_msg = state_msg;
+    }
     return NULL;
 }
 
 plug_message_receive(_act_pow_cpu_reset)
 {
-    // TODO: the capacity to reset specific devices within a domain
-    ops.powercap_reset(ctxs[CPUPOW_CORE].dev_cpupow);
+    metrics_request_t *req = (metrics_request_t *) data;
+    if (state_fail(ops.powercap_reset(ctxs[CPUPOW_CORE].dev_cpupow))) {
+        req->state = Error, req->error_msg = state_msg;
+    }
     return NULL;
 }
 

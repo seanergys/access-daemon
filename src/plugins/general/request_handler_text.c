@@ -91,6 +91,9 @@ static char *process_output_metrics_tochar(metrics_request_t *parsed)
             for (v = 0; v < parsed->outputs[o].values_count; ++v) {
                 c += sprintf(&output_buffer[c], "%lu ", parsed->outputs[o].values[v]);
             }
+            if (parsed->outputs[o].state != Ok) {
+                c += sprintf(&output_buffer[c], "(error: %s) ", parsed->outputs[o].error_msg);
+            }
         }
         c += sprintf(&output_buffer[c], "\n");
     }
