@@ -18,16 +18,18 @@
 #define LF            2 // Index 2 is last Freq
 
 typedef struct sensor_s {
-    uint64_t aperf;
-    uint64_t mperf;
+    uint64_t  aperf;
+    uint64_t  mperf;
+    state_t   state;
 } sensor_t;
 
 // TODO: allocate space based on number of cpus
 static topology_t     *tp;
 static uint64_t        base_frequency;
+static pthread_key_t   copy_key;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-static sensor_t       *registers1;
-static sensor_t       *registers2;
+static sensor_t       *regs1;
+static sensor_t       *regs2;
 static metric_t        mets[METS_MAX]; // Current and last Freq and AccFreq
 static int             acc_on; // Accumulator plugin is online
 
@@ -39,12 +41,15 @@ plug_identity()
 
 static void dev_read(uint32_t cpu_min, uint32_t cpu_max)
 {
+    state_t s1, s2;
     int i;
 
     timestamp_get(&mets[F].time);
     for (i = cpu_min; i < cpu_max; ++i) {
-        msr_read(tp->cpus[i].id, &registers2[i].mperf, sizeof(uint64_t), MSR_IA32_MPERF);
-        msr_read(tp->cpus[i].id, &registers2[i].aperf, sizeof(uint64_t), MSR_IA32_APERF);
+        s1 = msr_read(tp->cpus[i].id, &regs2[i].mperf, sizeof(uint64_t), MSR_IA32_MPERF);
+        s2 = msr_read(tp->cpus[i].id, &regs2[i].aperf, sizeof(uint64_t), MSR_IA32_APERF);
+        if (state_fail(s1)) { regs2[i].state = s1; }
+        if (state_fail(s2)) { regs2[i].state = s2; }
     }
 }
 
@@ -60,16 +65,23 @@ static void dev_acc(uint32_t cpu_min, uint32_t cpu_max)
     if (timestamp_is_zero(&mets[LF].time)) {
         return;
     }
+    // You don't need time per device because when Accumulator plugin is present,
+    // it will ask for all devices. But if not, the AccFreq value won't be
+    // available, and the time is only required for that metric.
     seconds = timestamp_fdiff(&mets[F].time, &mets[LF].time, TIME_SECS, TIME_MSECS);
-    //
     for (i = cpu_min; i < cpu_max; ++i) {
+        mets[F].values[i] = 0LU;
+        // Do not accumulate if there is an error when reading
+        if (state_fail(regs2[i].state) || state_fail(regs1[i].state)) {
+            continue;
+        }
         // APERF and MPERF registers are deltas. After making a difference you
         // will get the average frequency between two specific times, without
         // involving a time value. But to accumulate these clocks, the time
         // turns a requirement because if the accumulation happens every two
         // seconds, you will have to multiplicate by 2.
-        mperf_diff = overflow_magic_u64((uint64_t) registers2[i].mperf, (uint64_t) registers1[i].mperf, MAXBITS64);
-        aperf_diff = overflow_magic_u64((uint64_t) registers2[i].aperf, (uint64_t) registers1[i].aperf, MAXBITS64);
+        mperf_diff = overflow_magic_u64((uint64_t) regs2[i].mperf, (uint64_t) regs1[i].mperf, MAXBITS64);
+        aperf_diff = overflow_magic_u64((uint64_t) regs2[i].aperf, (uint64_t) regs1[i].aperf, MAXBITS64);
         if (((uint64_t) (-1LU) / 100LU) < aperf_diff) {
             aperf_diff >>= 7;
             mperf_diff >>= 7;
@@ -83,8 +95,21 @@ static void dev_acc(uint32_t cpu_min, uint32_t cpu_max)
 
 static void dev_copy(uint32_t cpu_min, uint32_t cpu_max)
 {
-    memcpy(&registers1[cpu_min], &registers2[cpu_min], sizeof(sensor_t) * (cpu_max - cpu_min));
+    memcpy(&regs1[cpu_min], &regs2[cpu_min], sizeof(sensor_t) * (cpu_max - cpu_min));
     mets[LF].time = mets[F].time;
+}
+
+static void dev_err(uint32_t cpu_min, uint32_t cpu_max)
+{
+    int i;
+    mets[F].state = Ok, mets[F].error_msg = "";
+    mets[A].state = Ok, mets[A].error_msg = "";
+    for (i = cpu_min; i < cpu_max; ++i) {
+        if (state_fail(regs2[i].state) || state_fail(regs1[i].state)) {
+            mets[F].state = Error, mets[F].error_msg = state_msg;
+            mets[A].state = Error, mets[A].error_msg = state_msg;
+        }
+    }
 }
 
 plug_init(_topology_ext)
@@ -127,10 +152,19 @@ plug_init(_topology_ext)
         mets[m].units        = "KHz";
         mets[m].granul       = mets[m].device;
         mets[m].granul_name  = mets[m].device_name;
+        if (mets[m].values == NULL) {
+            return "[X] memory can't be allocated";
+        }
     }
     // APERF and MPERF values don't fit in the metrics
-    registers1 = calloc(tp->cpu_count, sizeof(sensor_t));
-    registers2 = calloc(tp->cpu_count, sizeof(sensor_t));
+    regs1 = calloc(tp->cpu_count, sizeof(sensor_t));
+    regs2 = calloc(tp->cpu_count, sizeof(sensor_t));
+    if (regs1 == NULL || regs2 == NULL) {
+        return "[X] memory can't be allocated";
+    }
+    if (pthread_key_create(&copy_key, free) != 0) {
+        return "[X] Failed to create CPU frequency output key";
+    }
     // First readings
     dev_read(0, tp->cpu_count);
     dev_copy(0, tp->cpu_count);
@@ -156,7 +190,7 @@ static void met_copy(metric_t *out, metric_t *met, uint64_t *copy, int cpu_min, 
 static char *mets_read(void *data, uint64_t *copy)
 {
     metrics_request_t *req = (metrics_request_t *) data;
-    metric_t  *out = &req->outputs[req->outputs_count];
+    metric_t          *out = &req->outputs[req->outputs_count];
     uint32_t   accumulated = (req->input.command == GetAcc);
     uint32_t       cpu_max = tp->cpu_count;
     uint32_t       cpu_min = 0;
@@ -171,8 +205,9 @@ static char *mets_read(void *data, uint64_t *copy)
     //     processing the APERF and MPERF may be less precise.
     while (pthread_mutex_trylock(&lock));
     dev_read(cpu_min, cpu_max); // Getting new sensor values
-    dev_acc (cpu_min, cpu_max); // The accumulation is only possible if
+    dev_acc (cpu_min, cpu_max); // The accumulation is only possible if the acc. plugin is present
     dev_copy(cpu_min, cpu_max); // Copying the new values for later.
+    dev_err (cpu_min, cpu_max);
     // Returning metric
     met_copy(&out[F], &mets[F], &copy[cpu_min], cpu_min, cpu_max);
     met_copy(&out[A], &mets[A], &copy[cpu_max], cpu_min, cpu_max * accumulated);
@@ -183,10 +218,17 @@ static char *mets_read(void *data, uint64_t *copy)
 
 static char *mets_return(void *data)
 {
-    static __thread uint64_t *copy = NULL;
-    // Each thread here will have its own copy of values.
-    if (copy == NULL) {
+    uint64_t *copy;
+    // Each thread owns its returned values until its next call or exit.
+    if ((copy = pthread_getspecific(copy_key)) == NULL) {
         copy = calloc(mets[F].devs_count, sizeof(uint64_t)*METS_MAX_REAL);
+        if (copy == NULL) {
+            return "[X] memory can't be allocated";
+        }
+        if (pthread_setspecific(copy_key, copy) != 0) {
+            free(copy);
+            return "[X] Failed to store CPU frequency outputs";
+        }
     }
     return mets_read(data, copy);
 }

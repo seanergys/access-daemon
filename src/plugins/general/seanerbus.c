@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include <stdint.h>
 #include <common/framework.h>
 #include <common/metrics_types.h>
 #include <plugins/general/seanerbus.h>
@@ -29,13 +30,6 @@ plug_identity()
     if ((st = seanerbus_ ## f(__VA_ARGS__, &err)) != SEANERBUS_STATUS_OK) { \
         return rsprintf("[X] SeanerBUS error %d during %s: %s", \
             st, #f, seanerbus_error_message(err)); \
-    }
-
-#define sea_cb(f, ...) \
-    if ((st = seanerbus_ ## f(__VA_ARGS__, &err)) != SEANERBUS_STATUS_OK) { \
-        printf("[X] SeanerBUS error %d during %s: %s", \
-            st, #f, seanerbus_error_message(err)); \
-        goto cleanup; \
     }
 
 plug_init(_seanerbus)
@@ -85,38 +79,64 @@ static void sent(sea_conn_t *conn, sea_stat_t status, const sea_err_t *error, vo
     }
 }
 
+#define sea_clean(f, ...) \
+    if ((st = seanerbus_ ## f(__VA_ARGS__)) != SEANERBUS_STATUS_OK) { \
+        goto cleanup; \
+    }
+
 static void requested(sea_conn_t *conn, sea_stat_t st, const sea_msg_t *msg_in, const sea_err_t *error, void *udata)
 {
-    // We don't know how many threads SeanerBUS has, therefore the 'req' has to
-    // be kept in the thread local storage.
-    static __thread metrics_request_t req = {0};
-    uint64_t values[2] = { 0, 0 }; // 1 by 1
-    seanerbus_byte_view_t payload = {0};
-    seanerbus_byte_view_t payback = {0};
+    seanerbus_ErrorResV1_builder_t *err_payback = NULL;
+    seanerbus_SetReqV1_reader_t *set_payload = NULL;
     seanerbus_message_t *msg_out = NULL;
+    get_payback_t get_payback = {0};
+    metrics_request_t req = {0};
+    uint64_t values[2] = {0, 0};
     sea_metric_t *uuid = udata;
+    sea_err_t *err = NULL;
     uint64_t type = 0;
 
+    if (st != SEANERBUS_STATUS_OK) {
+        return;
+    }
+    if (uuid == NULL || uuid->met == NULL) {
+        // TODO: return response
+        return;
+    }
     print_udata(udata, "Requested");
-    sea_cb(message_get_payload_type, msg_in, &type);
-    sea_cb(message_get_payload, msg_in, &payload);
+    // Payload
+    sea_clean(message_get_payload_type, msg_in, &type, &err);
+    if (type == SET_REQ_V1) {
+        sea_clean(message_as_SetReqV1_reader, msg_in, &set_payload, &err);
+        values[0] = seanerbus_SetReqV1_get_Value(set_payload);
+        seanerbus_SetReqV1_reader_destroy(set_payload);
+    }
     // Converting the SBus request into AD internal format
-    req.input.domain    = uuid->met->domain;
-    req.input.device    = uuid->met->device;
-    req.input.metric    = uuid->met->metric;
-    req.input.device_no = uuid->device_no;
-    req.input.command   = (type == SET_REQ_V1)? Set: Get;
-    req.input.values    = (type == SET_REQ_V1)? (uint64_t *) payload.data: NULL;
+    req.input.domain       = uuid->met->domain;
+    req.input.device       = uuid->met->device;
+    req.input.metric       = uuid->met->metric;
+    req.input.device_no    = uuid->device_no;
+    req.input.command      = (type == SET_REQ_V1)? Set: Get;
+    req.input.values       = (type == SET_REQ_V1)? values: NULL;
+    req.input.values_count = (type == SET_REQ_V1)? 1: 0;
     // Sending the request to the plugins below
     plug_message_send("received_request", (void *) &req);
-    if (type == GET_REQ_V1) {
-        values[0] = req.outputs_count? req.outputs[0].values[0]: VALUE_ERROR;
-        payback = seanerbus_byte_view_from_data(values, sizeof(uint64_t)*2);
+    // If the command is Get, the single output error is copied into the general
+    req.state     = (type != GET_REQ_V1)? req.state    : req.outputs[0].state;
+    req.error_msg = (type != GET_REQ_V1)? req.error_msg: req.outputs[0].error_msg;
+    // Paybackz
+    if (type == GET_REQ_V1 && req.state == Ok) {
+        values[0] = req.outputs[0].values[0];
+        get_payback = seanerbus_byte_view_from_data(values, sizeof(uint64_t)*2);
+        sea_clean(message_create, uuid->addr, GET_RES_V1, get_payback, 0, &msg_out, &err);
     } else {
-        payback = seanerbus_byte_view_from_data(NULL, 0);
+        sea_clean(ErrorResV1_builder_create, &err_payback, &err);
+        seanerbus_ErrorResV1_set_ErrorCode(err_payback, req.state);
+        seanerbus_ErrorResV1_set_What(err_payback, req.error_msg);
+        sea_clean(ErrorResV1_builder_to_message, err_payback, uuid->addr, &msg_out, &err);
+        seanerbus_ErrorResV1_builder_destroy(err_payback);
     }
-    sea_cb(message_create, uuid->addr, GET_RES_V1, payback, 0, &msg_out);
-    sea_cb(connection_respond_to, conn, msg_in, msg_out, sent, udata);
+    sea_clean(connection_respond_to, conn, msg_in, msg_out, sent, udata, &err);
 cleanup:
     seanerbus_message_destroy(msg_out);
     seanerbus_error_destroy(err);

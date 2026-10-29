@@ -4,7 +4,6 @@
 #include <pthread.h>
 #include <plugins/general/metrics_accumulator.h>
 
-static pthread_key_t     outputs_key;
 static pthread_mutex_t   lock = PTHREAD_MUTEX_INITIALIZER;
 static metrics_request_t acc; // General accumulation of metrics
 
@@ -17,12 +16,6 @@ plug_identity()
 plug_init(_metrics_accumulator)
 {
     static uint32_t enabled = 1;
-    int             rc;
-
-    // The returned buffer stays valid until the next request or thread exit.
-    if ((rc = pthread_key_create(&outputs_key, free)) != 0) {
-        return "[D] Failed to create metrics output key";
-    }
     // Sharing some information with other plugins that are implementing the
     // metrics_accumulator initialization function.
     *data_alloc = &enabled;
@@ -61,33 +54,18 @@ plug_periodic(_metrics_accumulator)
 
 plug_exit()
 {
-    free(acc.outputs);
-    acc.outputs = NULL;
-    acc.outputs_count = 0;
     return NULL;
 }
 
 plug_message_receive(_metrics_call)
 {
     metrics_request_t *req = (metrics_request_t *) data;
+    metric_t *outs = req->outputs;
     int dev_max, dev_min;
-    metric_t *outs;
     int a, o;
 
     req->outputs_count = 0;
-    req->outputs = NULL;
-    // Thread local-storage (TLS) or thread specific-data (TSD)
-    if ((outs = pthread_getspecific(outputs_key)) == NULL) {
-        if ((outs = calloc(MAX_METRICS_NO, sizeof(metric_t))) == NULL) {
-            return "[S] Failed to allocate metrics outputs";
-        }
-        if (pthread_setspecific(outputs_key, outs) != 0) {
-            free(outs);
-            return "[S] Failed to store metrics outputs";
-        }
-    }
     memset(outs, 0, sizeof(metric_t) * MAX_METRICS_NO);
-    req->outputs = outs;
     // If it is not a Metric nor Get, let the call pipeline to continue
     if (req->input.domain  != Metric) { return NULL; }
     if (req->input.command != Get   ) { return NULL; }
@@ -120,5 +98,5 @@ plug_message_receive(_metrics_call)
             req->input.metric != AllMetrics) break;
     }
     pthread_mutex_unlock(&lock);
-    return "[S]";
+    return "[S]"; // S stops the framework from the subsequent "metrics_call" calls
 }

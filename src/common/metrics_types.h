@@ -16,13 +16,13 @@
 #define MAX_DEVICES_NO  2048
 #define DEVS_ALL       -1
 #define MET_NAME(m)    #m
-#define VALUE_ERROR    -1
 
 typedef struct timespec timestamp_t;
 
 typedef enum {
     Ok = 0,
-    Error,
+    Success = Ok,
+    Error = -1,
 } status_e;
 
 enum {
@@ -33,9 +33,13 @@ enum {
 typedef enum {
     AllDomains = All,
     Met,
+    Mets = Met,
     Metric = Met,
+    Metrics = Met,
     Act,
+    Acts = Act,
     Actuator = Act,
+    Knobs = Act,
     Cfg, // Not included in All
     Config = Cfg,
     Configuration = Cfg,
@@ -105,14 +109,17 @@ typedef struct metrics_s {
     const char     *units;
     device_e        granul;
     const char     *granul_name;
+    status_e        state;
+    const char     *error_msg;
+    char            error_msg_buffer[256]; // Auxiliar buffer for preserve short lifetime strings
 } metric_t;
 
 typedef struct metrics_request_s {
     metric_t     input;
-    status_e     state; // General state
-    const char  *error_msg; // General error
-    metric_t    *outputs; // 1 input, N outputs
+    metric_t     outputs[MAX_METRICS_NO]; // 1 input, N outputs
     uint8_t      outputs_count;
+    status_e     state; // General output state
+    const char  *error_msg; // General output error
 } metrics_request_t;
 
 // Short-names

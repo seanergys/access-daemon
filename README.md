@@ -5,49 +5,19 @@ The Access Daemon is a plugin-based program that runs as a Linux daemon. Each pl
 ## Table of contents
 
 - [How to compile](#how-to-compile)
-- [How to simulate MSRs](#how-to-simulate-msrs)
 - [How to test requests via keyboard plugin](#how-to-test-requests-via-keyboard-plugin)
 - [How to test requests via Data Plane](#how-to-test-requests-via-data-plane)
 - [Available plugins of metrics and actuators](#available-plugins-of-metrics-and-actuators)
 - [String examples for the Keyboard plugin](#string-examples-for-the-keyboard-plugin)
 - [Folder structure](#folder-structure)
+- [EasyBus](#easybus)
 - [Building new plugins](#building-new-plugins)
 
 ## How to compile
 
 1) Download the dependencies: `git submodule update --init --recursive` (mainly the [EAR Mirror](https://gitlab.seanergys.fz-juelich.de/software/ear)).
-2) (Optional) If you want to build the Data Plane plugin, compile and install [Seanerbus](https://gitlab.seanergys.fz-juelich.de/software/seanerbus) and its [C bindings](https://gitlab.seanergys.fz-juelich.de/software/seanerbus-cpp). Then add the `SEANERBUS_PREFIX` path to the AD root Makefile.
+2) (Optional) If you want to build the Data Plane plugin, compile and install [Seanerbus](https://gitlab.seanergys.fz-juelich.de/software/seanerbus) and its [C bindings](https://gitlab.seanergys.fz-juelich.de/software/seanerbus-cpp). Then add the `SEABUS_PREFIX` path to the AD root Makefile.
 3) Run `make`.
-
-## How to simulate MSRs
-
-`src/plugins/preloads/libsim-msr.so` replaces EAR's `msr_test`, `msr_open`,
-`msr_close`, `msr_read` and `msr_write` without accessing `/dev/cpu/*/msr`.
-Build it with `make -C src/plugins/preloads` and load it for the daemon:
-
-```bash
-LD_PRELOAD="$PWD/src/plugins/preloads/libsim-msr.so" ./run-with-seanerbus.sh
-```
-
-It can also be combined with `libsim-nvml.so` using a colon-separated
-`LD_PRELOAD` list. CPU topology, CPUID, sysfs and HSMP still use the host APIs;
-the plugins retain their CPU compatibility checks.
-
-| Registers | Simulated behavior |
-|-----------|--------------------|
-| `0xe7`, `0xe8` | 64-bit MPERF/APERF counters at 2.4/2.88 billion ticks/s; the frequency plugin derives 120% of the host base frequency. |
-| `0x611`, `0x619`, `0x639`, `0x641` | 32-bit energy counters equivalent to 120/20/80/10 W for PKG/DRAM/PP0/PP1. |
-| `0xc001029b`, `0xc001029a` | AMD 32-bit package/core energy counters equivalent to 120/15 W. |
-| `0x606`, `0xc0010299` | Fixed RAPL units: 1/8 W, 1/16384 J, 1/1024 s. |
-| `0x610`, `0x618`, `0x638`, `0x640` | Power limits initially enabled at 150/40/100/25 W; simulated writes are retained per CPU. |
-| `0x614`, `0x61c` | Fixed PKG/DRAM power information: TDP 150/40 W, minimum 30/10 W, maximum 250/80 W. |
-| `0xc0010015`, `0xc0010064` | Fixed AMD boost-enabled status and enabled P0 frequency encoding. |
-
-Counters advance with monotonic time and wrap at their hardware width.
-Reads and writes require an open CPU and exactly eight bytes. Unknown registers
-return an error, including address zero, which EAR uses for absent registers.
-Run `make -C src/tests check-msr` for deterministic counter, rollover and
-power-limit tests.
 
 ## How to test requests via keyboard plugin
 
@@ -78,7 +48,7 @@ Keep in mind that the plugins in `./run.sh` may not be compatible with your syst
 | act.cpu_freq.driver_acpi.so   | Freq              | Cpu         | ACPI driver           | <span style="color:green">**OK**</span>
 | act.cpu_freq.hsmp.so          | Freq              | Cpu         | HSMP                  | <span style="color:green">**OK**</span>
 | act.cpu_pow.msr.so            | Power             | Cpu, Socket | RAPL                  | <span style="color:green">**OK**</span>
-| act.cpu_pow.hsmp.so           | Power             | Socket      | HSMP                  | <span style="color:orange">**UPDATE PENDING**</span>
+| act.cpu_pow.hsmp.so           | Power             | Socket      | HSMP                  | <span style="color:green">**OK**</span>
 | act.gpu.nvml.so               | Multiple          | Gpu         | NVML                  | <span style="color:red">**IN DEVELOPMENT**</span>
 
 **[*]**: Available if `metrics_accumulator.so` plugin is loaded.
@@ -119,7 +89,14 @@ act power  cpu    0    set <1 arg>  # Sets new power limit in all cpus (same for
 2) `src/plugins/general` contains plugins that do not produce metrics, such as `request_handler.so`, intended to be the Data Plane request parser, and `metrics_calles.so`, the bridge between communications and metrics.
 3) `src/plugins/metrics` contains the plugins that return metrics.
 4) `src/plugins/knobs_actuators` contains the plugins that set and get actuator limits.
+5) `src/libraries` contains the EasyBus, an easy-to-use library to connect with the Access Daemon through SeanerBus.
 5) `external` where some dependencies like EAR are downloaded.
+
+## EasyBus
+
+EasyBus is a synchronous C library for connecting to the Access Daemon daemon through SeanerBus. It handles metric discovery, request dispatch and response collection, so applications can read metrics and control actuators without using the SeanerBus API directly. Its public API is declared in [`access_easybus.h`](src/libraries/access_easybus.h).
+
+To build it, configure `SEABUS_PREFIX` as described in [How to compile](#how-to-compile) and run `make`. This produces `src/libraries/libaccess_easybus.so` and the example client [`metrics_easybus`](src/tests/metrics_easybus.c). Before connecting, start the SeanerBus Broker, Naming Service and the `accessd` with its SeanerBus plugin (see [`run-with-seanerbus.sh`](run-with-seanerbus.sh)). The requested metrics and actuators must be provided by loaded plugins.
 
 ## Building new plugins
 

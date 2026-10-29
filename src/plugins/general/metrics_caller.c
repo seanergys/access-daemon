@@ -35,14 +35,13 @@ static char *call_metrics_plugins(void *data)
 {
     metrics_request_t *req = (metrics_request_t *) data;
     char *message = form_message(&req->input);
-    // Preparing returning output
-    if (req->outputs == NULL) {
-        req->outputs = calloc(MAX_METRICS_NO, sizeof(metric_t));
-    } else {
-        memset(req->outputs, 0, sizeof(metric_t) * MAX_METRICS_NO);
-    }
+
+    // Cleaning the outputs.
+    memset(req->outputs, 0, sizeof(metric_t) * MAX_METRICS_NO);
     req->outputs_count = 0;
-    //printf("%s\n", message);
+    req->state         = Ok;
+    req->error_msg     = ""; // This saves other plugins from not-NULL conditional
+    //printf("%s\n", message); // Debugging masterpiece
     plug_message_send(message, data);
     return NULL;
 }
