@@ -2,11 +2,11 @@ all: ;
 
 install:
 	mkdir -p $(PREFIX)
-	mkdir -p $(PREFIX)/etc
-	mkdir -p $(PREFIX)/include
-	mkdir -p $(PREFIX)/lib
+	mkdir -p $(PREFIX)/include/accessd
+	mkdir -p $(PREFIX)/lib/accessd/plugins/actuators
+	mkdir -p $(PREFIX)/lib/accessd/plugins/metrics
 	mkdir -p $(PREFIX)/sbin
-	cp *.sh $(PREFIX)/etc
+	cp *.sh $(PREFIX)/sbin
 
 clean: ;
 

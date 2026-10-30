@@ -17,9 +17,7 @@ libsim-nvml.so: nvml.c $(EAR_SRCDIR)/metrics/common/nvml.h
 libsim-msr.so: msr.c $(EAR_SRCDIR)/metrics/common/msr.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) -fPIC -fvisibility=hidden -shared -o $@ $< $(LDFLAGS) -pthread
 
-install: all
-	mkdir -p $(PREFIX)/lib/plugins/preloads
-	cp -f $(BINS) $(PREFIX)/lib/plugins/preloads
+install: ;
 
 clean:
 	rm -f *.o *.a *.so *.so.1 $(BINS)

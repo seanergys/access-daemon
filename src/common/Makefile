@@ -63,8 +63,8 @@ libcommon.so: $(OBJS)
 	$(CC) -shared -o $@ $(OBJS) $(LDFLAGS)
 
 install:
-	cp -f metrics_types.h $(PREFIX)/include
-	cp -f libcommon.so $(PREFIX)/lib
+	cp -f metrics_types.h $(PREFIX)/include/accessd
+	cp -f libcommon.so $(PREFIX)/lib/accessd
 
 clean:
 	rm -f *.o *.so *.a

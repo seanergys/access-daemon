@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export LD_LIBRARY_PATH=../lib:/opt/seanerbus/lib
+export LD_LIBRARY_PATH=../lib/accessd:/opt/seanerbus/lib
 
 PLUGINS="keyboard.so"
 PLUGINS+=",seanerbus.so"
@@ -17,5 +17,5 @@ PLUGINS+=",act.cpu_pow.msr.so"
 # The missing plugins in the argument can be found in the dependency list
 # present in the code of each plugin.
 ../sbin/accessd ${1} \
-    --paths=../lib/plugins:../lib/plugins/metrics:../lib/plugins/actuators \
+    --paths=../lib/accessd/plugins:../lib/accessd/plugins/metrics:../lib/accessd/plugins/actuators \
     --plugins=${PLUGINS}

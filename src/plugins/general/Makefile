@@ -43,8 +43,7 @@ topology_ext.so: $(TOPO_OBJS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -fPIC -shared -o $@ topology_ext.c $(TOPO_OBJS) $(LDFLAGS)
 
 install:
-	mkdir -p $(PREFIX)/lib/plugins
-	cp -f $(BINS) $(PREFIX)/lib/plugins
+	cp -f $(BINS) $(PREFIX)/lib/accessd/plugins
 
 clean:
 	rm -f *.o *.so

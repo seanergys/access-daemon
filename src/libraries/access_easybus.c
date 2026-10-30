@@ -503,7 +503,7 @@ cleanup:
         if (error_msg != NULL)
             snprintf(error_msg, 256, "%s", seanerbus_error_message(err));
         else if (p_outs[0].error_msg != NULL)
-            snprintf(p_outs[0].error_msg, 256, "%s", seanerbus_error_message(err));
+            snprintf((char *) p_outs[0].error_msg, 256, "%s", seanerbus_error_message(err));
         debug("Error: %s", seanerbus_error_message(err));
         seanerbus_error_destroy(err);
     }

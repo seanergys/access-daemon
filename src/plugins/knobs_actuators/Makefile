@@ -12,8 +12,7 @@ all: $(BINS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -fPIC -shared -o act.$@ $< $(LDFLAGS)
 
 install:
-	mkdir -p $(PREFIX)/lib/plugins/actuators
-	cp -f *.so $(PREFIX)/lib/plugins/actuators
+	cp -f *.so $(PREFIX)/lib/accessd/plugins/actuators
 
 clean:
 	rm -f *.o *.so

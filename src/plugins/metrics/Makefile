@@ -10,8 +10,7 @@ all: $(BINS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -fPIC -shared -o met.$@ $< $(LDFLAGS)
 
 install:
-	mkdir -p $(PREFIX)/lib/plugins/metrics
-	cp -f *.so $(PREFIX)/lib/plugins/metrics
+	cp -f *.so $(PREFIX)/lib/accessd/plugins/metrics
 
 clean:
 	rm -f *.o *.so
