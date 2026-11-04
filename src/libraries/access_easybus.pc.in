@@ -1,0 +1,9 @@
+prefix=@PREFIX@
+libdir=${prefix}/lib/accessd
+includedir=${prefix}/include/accessd
+
+Name: access_easybus
+Description: Synchronous SeanerBus client for the Access Daemon
+Version: 0
+Libs: -L${libdir} -laccess_easybus @SEABUS_LDFLAGS@
+Cflags: -I${includedir}

@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
         printf("%s_%s: %d vals (%d: %s)\n", \
             mets[m].domain_label, mets[m].metric_label, mets[m].values_count, \
             mets[m].state, mets[m].error_msg); \
-        for (v = 0; v < mets[m].values_count; ++v) { \
+        for (v = 0; v < mets[m].values_count && mets[m].values != NULL; ++v) { \
             printf("    %lu\n", mets[m].values[v]); \
         } \
     }
@@ -26,6 +26,12 @@ int main(int argc, char *argv[])
         printf("Could not connect to SeanerBUS: %s\n", strerror(errno));
         return 0;
     }
+    if (!easybus_search_available_metrics(Met, Freq, Cpu, &metrics)) {
+        printf("Metric is not available: %s\n", strerror(errno));
+        return 0;
+    }
+    print_metrics(metrics, 1);
+    metrics = NULL;
     printf("Easybus is connected? %d\n", easybus_is_connected());
     if (!easybus_metrics_alloc(&metrics_own)) {
         printf("Error during the allocation: %s\n", strerror(errno));

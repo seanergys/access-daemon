@@ -91,6 +91,13 @@ EasyBus is a synchronous C library for connecting to the Access Daemon through S
 
 To build it, configure `SEABUS_PREFIX` as described in [How to compile](#how-to-compile), then invoke `make`. This produces `src/libraries/libaccess_easybus.so` and the example client `src/tests/metrics_easybus` (see [source](src/tests/metrics_easybus.c)). Before connecting, start the SeanerBus Broker, Naming Service and `accessd` with its SeanerBus plugin (see [`run-with-seanerbus.sh`](run-with-seanerbus.sh)). The requested metrics and actuators must be provided by loaded plugins.
 
+The build also generates `src/libraries/access_easybus.pc`. Run `make install` with the same `PREFIX` used for compilation to install it under `PREFIX/lib/pkgconfig`.
+
+```sh
+export PKG_CONFIG_PATH="/tmp/access-daemon/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+cc client.c -o client $(pkg-config --cflags --libs access_easybus)
+```
+
 ## Folder structure
 
 1) In [`src/common`](src/common), some EAR helper functions are compiled into `libcommon.so`, including the framework that calls specific plugin functions.

@@ -17,6 +17,11 @@ int easybus_is_connected();
 // release *mets with free(). Any previous pointer is overwritten.
 int easybus_get_available_metrics(metric_t **mets, int *mets_count);
 
+// Returns 1 if the specific metric is found, and allocates allocate the metric
+// meta-data if found and _met is not NULL. Release *_met with free().
+int easybus_search_available_metrics(domain_e dom, metric_e met, device_e dev,
+    metric_t **_met);
+
 // Sends a Get request to the Access Daemon. All is a wildcard available for
 // domain, metric, device and device number. With *mets == NULL, a copy
 // installed in thread-owned storage is returned, so do no free it and consume

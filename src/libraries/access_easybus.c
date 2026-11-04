@@ -42,7 +42,7 @@ static synchro_t       sync_global;
 static int             is_connected;
 static sea_conn_t     *conn;
 
-//#define debug(...) { }printf(__VA_ARGS__); printf("\n");
+//#define debug(...) { printf(__VA_ARGS__); printf("\n"); }
 #define debug(...)
 
 #define sea_clean(f, ...) \
@@ -287,6 +287,7 @@ cleanup:
         seanerbus_connection_destroy(conn);
     }
     pthread_mutex_unlock(&lock);
+    debug("Is connected: %d", is_connected);
     return is_connected;
 }
 
@@ -314,9 +315,32 @@ int easybus_get_available_metrics(metric_t **outputs, int *outputs_count)
         return_errno(EINVAL);
     if ((*outputs = calloc(mets_count, sizeof(metric_t))) == NULL)
         return_errno(ENOMEM);
-    *outputs = memcpy(*outputs, mets, mets_count);
+    *outputs = memcpy(*outputs, mets, mets_count * sizeof(metric_t));
     *outputs_count = mets_count;
     return 1;
+}
+
+int easybus_search_available_metrics(domain_e dom, metric_e met, device_e dev, metric_t **output)
+{
+    int m;
+
+    debug("Number of metrics available: %d", mets_count);
+    if (!is_connected)
+        return_errno(ENOTCONN);
+    for (m = 0; m < mets_count; ++m) {
+        if (dom != mets[m].domain) { continue; }
+        if (dev != mets[m].device) { continue; }
+        if (met != mets[m].metric) { continue; }
+        if (output == NULL)
+            break;
+        if ((*output = calloc(1, sizeof(metric_t))) == NULL)
+            return_errno(ENOMEM);
+        *output = memcpy(*output, &mets[m], sizeof(metric_t));
+        debug("Found %s_%s_%s",
+            mets[m].domain_label, mets[m].device_label, mets[m].metric_label);
+        break;
+    }
+    return m < mets_count;
 }
 
 static void received(sea_conn_t *conn, sea_stat_t st, const sea_msg_t *response,
