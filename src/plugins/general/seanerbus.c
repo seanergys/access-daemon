@@ -87,11 +87,11 @@ static void sent(sea_conn_t *conn, sea_stat_t status, const sea_err_t *error, vo
 static void requested(sea_conn_t *conn, sea_stat_t st, const sea_msg_t *msg_in, const sea_err_t *error, void *udata)
 {
     seanerbus_ErrorResV1_builder_t *err_payback = NULL;
+    seanerbus_GetResV1_builder_t *get_payback = NULL;
     seanerbus_SetReqV1_reader_t *set_payload = NULL;
     seanerbus_message_t *msg_out = NULL;
-    get_payback_t get_payback = {0};
     metrics_request_t req = {0};
-    uint64_t values[2] = {0, 0};
+    uint64_t values[1] = {0};
     sea_metric_t *uuid = udata;
     sea_err_t *err = NULL;
     uint64_t type = 0;
@@ -126,9 +126,10 @@ static void requested(sea_conn_t *conn, sea_stat_t st, const sea_msg_t *msg_in, 
     req.error_msg = (type != GET_REQ_V1)? req.error_msg: req.outputs[0].error_msg;
     // Paybackz
     if (type == GET_REQ_V1 && req.state == Ok) {
-        values[0] = req.outputs[0].values[0];
-        get_payback = seanerbus_byte_view_from_data(values, sizeof(uint64_t)*2);
-        sea_clean(message_create, uuid->addr, GET_RES_V1, get_payback, 0, &msg_out, &err);
+        sea_clean(GetResV1_builder_create, &get_payback, &err);
+        seanerbus_GetResV1_set_Value(get_payback, req.outputs[0].values[0]);
+        seanerbus_GetResV1_set_Time(get_payback, 0);
+        sea_clean(GetResV1_builder_to_message, get_payback, uuid->addr, &msg_out, &err);
     } else {
         sea_clean(ErrorResV1_builder_create, &err_payback, &err);
         seanerbus_ErrorResV1_set_ErrorCode(err_payback, req.state);
@@ -138,6 +139,7 @@ static void requested(sea_conn_t *conn, sea_stat_t st, const sea_msg_t *msg_in, 
     }
     sea_clean(connection_respond_to, conn, msg_in, msg_out, sent, udata, &err);
 cleanup:
+    seanerbus_GetResV1_builder_destroy(get_payback);
     seanerbus_message_destroy(msg_out);
     seanerbus_error_destroy(err);
 }
