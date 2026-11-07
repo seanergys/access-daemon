@@ -11,7 +11,7 @@
 #define ERR_RES_V1      SEANERBUS_PAYLOAD_ERROR_RES_V1
 #define GET_RES_V1_SIZE 16
 
-#define SEA_LOCAL_ADDRESS "demobus://localhost:5398";
+#define SEA_LOCAL_ADDRESS "seanerbroker://localhost:5398";
 #define SEA_UUIDS_COUNTER "Uuids_count"
 
 // Short names
@@ -21,12 +21,6 @@ typedef seanerbus_entity_t     sea_addr_t;
 typedef seanerbus_message_t    sea_msg_t;
 typedef seanerbus_status_t     sea_stat_t;
 typedef seanerbus_error_t      sea_err_t;
-
-typedef seanerbus_SetReqV1_reader_t    set_payload_t;
-typedef seanerbus_ErrorResV1_builder_t set_payback_t;
-typedef seanerbus_byte_view_t          get_payload_t;
-typedef seanerbus_byte_view_t          get_payback_t;
-
 
 typedef struct sea_metric_s {
     sea_addr_t *addr;

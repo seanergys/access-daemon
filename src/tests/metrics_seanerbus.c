@@ -64,16 +64,16 @@ static void named(sea_conn_t *conn, sea_stat_t st, const sea_name_entry_t *entri
 static void received(sea_conn_t *conn, sea_stat_t status,
     const sea_msg_t *response, const sea_err_t *error, void *udata)
 {
-    seanerbus_byte_view_t payload;
+    seanerbus_GetResV1_reader_t *payload;
     protomet_t *met = udata;
     uint64_t type;
 
     sea(message_get_payload_type, response, &type);
-    sea(message_get_payload, response, &payload);
     printf("Received payload type: %ld\n", type);
-    if (payload.size > 0) {
-        met->value = (uint64_t) payload.data;
-        memcpy(&met->value, payload.data, sizeof(met->value));
+    if (type == GET_RES_V1) {
+        sea(message_as_GetResV1_reader, response, &payload);
+        met->value = seanerbus_GetResV1_get_Value(payload);
+        seanerbus_GetResV1_reader_destroy(payload);
     }
 }
 

@@ -14,7 +14,7 @@
 typedef struct synchro_s {
     volatile int *expected_count;
     volatile int *completed_count;
-    void *output_value;
+    uint64_t *output_value;
     char *error_msg;
     int  *error_no;
 } synchro_t;
@@ -347,7 +347,7 @@ static void received(sea_conn_t *conn, sea_stat_t st, const sea_msg_t *response,
     const sea_err_t *error, void *udata)
 {
     seanerbus_ErrorResV1_reader_t *state = NULL;
-    seanerbus_byte_view_t payback;
+    seanerbus_GetResV1_reader_t *payback = NULL;
     uint64_t payback_type = 0;
     synchro_t *sync = udata;
     sea_err_t *err = NULL;
@@ -359,12 +359,9 @@ static void received(sea_conn_t *conn, sea_stat_t st, const sea_msg_t *response,
     }
     sea_clean(message_get_payload_type, response, &payback_type);
     if (payback_type == GET_RES_V1) {
-        sea_clean(message_get_payload, response, &payback);
-        if (payback.size != GET_RES_V1_SIZE) {
-            *sync->error_no = EPROTO;
-            goto cleanup;
-        }
-        memcpy(sync->output_value, payback.data, sizeof(uint64_t));
+        sea_clean(message_as_GetResV1_reader, response, &payback);
+        *sync->output_value = seanerbus_GetResV1_get_Value(payback);
+        seanerbus_GetResV1_reader_destroy(payback);
     } else {
         if (payback_type != ERR_RES_V1) {
             *sync->error_no = EPROTO;
@@ -422,7 +419,8 @@ static int easybus_request(domain_e dom, metric_e met, device_e dev, command_e c
     uint64_t *values, int values_count, metric_t **ext_outputs, int *ext_outputs_count,
     char *error_msg)
 {
-    seanerbus_SetReqV1_builder_t *payload = NULL;
+    seanerbus_SetReqV1_builder_t *set_payload = NULL;
+    seanerbus_GetReqV1_builder_t *get_payload = NULL;
     seanerbus_message_t *request = NULL;
     volatile int completed_count = 0; // ¿Volatile?
     volatile int expected_count  = 0; // ¿Atomic?
@@ -505,13 +503,16 @@ static int easybus_request(domain_e dom, metric_e met, device_e dev, command_e c
         if (cmd == Set) {
             // A single input value is broadcast; arrays use device indices.
             v = (values_count == 1)? 0: seas[s].device_no;
-            sea_clean(SetReqV1_builder_create, &payload);
-            seanerbus_SetReqV1_set_Value(payload, values[v]);
-            sea_clean(SetReqV1_builder_to_message, payload, seas[s].addr, &request);
-            seanerbus_SetReqV1_builder_destroy(payload);
+            sea_clean(SetReqV1_builder_create, &set_payload);
+            seanerbus_SetReqV1_set_Value(set_payload, values[v]);
+            sea_clean(SetReqV1_builder_to_message, set_payload, seas[s].addr, &request);
+            seanerbus_SetReqV1_builder_destroy(set_payload);
         } else {
-            sea_clean(message_create, seas[s].addr, GET_REQ_V1,
-                seanerbus_byte_view_from_data(NULL, 0), 0, &request);
+            sea_clean(GetReqV1_builder_create, &get_payload);
+            //seanerbus_GetReqV1_set_Value(get_payload, 0);
+            //seanerbus_GetReqV1_set_Time(get_payload, 0);
+            sea_clean(GetReqV1_builder_to_message, get_payload, seas[s].addr, &request);
+            seanerbus_GetReqV1_builder_destroy(get_payload);
         }
         sea_clean(connection_request, conn, request, received, &tds->syncs[e]);
         seanerbus_message_destroy(request);
