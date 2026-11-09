@@ -17,6 +17,7 @@ typedef struct synchro_s {
     uint64_t *output_value;
     char *error_msg;
     int  *error_no;
+    int   is_get;
 } synchro_t;
 
 // Per-calling-thread storage: fallback outputs, value buffers and callback
@@ -355,13 +356,16 @@ static void received(sea_conn_t *conn, sea_stat_t st, const sea_msg_t *response,
     if (st != SEANERBUS_STATUS_OK) {
         debug("Error: %s", seanerbus_error_message(error));
         *sync->error_no = ENOTCONN;
-        return;
+        goto cleanup;
     }
     sea_clean(message_get_payload_type, response, &payback_type);
     if (payback_type == GET_RES_V1) {
+        if (!sync->is_get) {
+            *sync->error_no = EPROTO;
+            goto cleanup;
+        }
         sea_clean(message_as_GetResV1_reader, response, &payback);
         *sync->output_value = seanerbus_GetResV1_get_Value(payback);
-        seanerbus_GetResV1_reader_destroy(payback);
     } else {
         if (payback_type != ERR_RES_V1) {
             *sync->error_no = EPROTO;
@@ -376,14 +380,16 @@ static void received(sea_conn_t *conn, sea_stat_t st, const sea_msg_t *response,
             }
             *sync->error_no = EIO;
         }
-        seanerbus_ErrorResV1_reader_destroy(state);
     }
-    *sync->completed_count += 1;
 cleanup:
+    seanerbus_GetResV1_reader_destroy(payback);
+    seanerbus_ErrorResV1_reader_destroy(state);
     if (err != NULL) {
+        *sync->error_no = EPROTO;
         debug("Error: %s", seanerbus_error_message(error));
         seanerbus_error_destroy(err);
     }
+    *sync->completed_count += 1;
 }
 
 static int tds_get(tds_t **_tds)
@@ -499,6 +505,7 @@ static int easybus_request(domain_e dom, metric_e met, device_e dev, command_e c
         tds->syncs[e].output_value    = is_get? &p_outs[o].values[seas[s].device_no]: NULL;
         tds->syncs[e].error_msg       = is_get? (char *) p_outs[o].error_msg: error_msg;
         tds->syncs[e].error_no        = &error_no;
+        tds->syncs[e].is_get          = is_get;
         // Each address accepts one Get or Set, even for an All-device request.
         if (cmd == Set) {
             // A single input value is broadcast; arrays use device indices.
