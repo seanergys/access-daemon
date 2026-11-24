@@ -44,6 +44,9 @@ topology_ext.so: $(TOPO_OBJS)
 
 install:
 	cp -f $(BINS) $(PREFIX)/lib/accessd/plugins
+ifdef SEABUS_PREFIX
+	ln -sfn "$(abspath $(SEABUS_PREFIX))/lib/libseanerbus.so" "$(PREFIX)/lib/accessd/libseanerbus.so"
+endif
 
 clean:
 	rm -f *.o *.so

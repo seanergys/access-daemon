@@ -8,10 +8,11 @@ all: all.sub-folders $(BINS)
 %.o: %.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
+# RPATH covers the bindings' dependencies and both installed EasyBus paths.
 access_easybus.so: access_easybus.c
 	$(CC) $(CPPFLAGS) $(SEABUS_CPPFLAGS) $(CFLAGS) -I../common/ \
 	    -fPIC --shared -o lib$@ $< $(LDFLAGS) $(SEABUS_LDFLAGS) ../common/libcommon.a \
-	    -Wl,--enable-new-dtags,-rpath,"$(PREFIX)/lib/accessd"
+	    -Wl,--disable-new-dtags,-rpath,'$$ORIGIN:$$ORIGIN/accessd'
 
 access_easybus.pc: access_easybus.pc.in Makefile
 	sed -e 's|@PREFIX@|$(abspath $(PREFIX))|g' \
