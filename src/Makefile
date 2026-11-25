@@ -2,9 +2,10 @@ BINS = accessd
 
 all: all.sub-folders accessd
 
-accessd: access_daemon.c
+accessd: access_daemon.c Makefile
 	$(CC) $(CPPFLAGS) $(CFLAGS) -I$(EAR_SRCDIR) -o $@ $< \
-	    $(LDFLAGS) -L$(SRCDIR)/common -lcommon -lpthread -ldl -lm
+	    $(LDFLAGS) -Wl,-rpath,"$(PREFIX)/lib/accessd" \
+	    -L$(SRCDIR)/common -lcommon -lpthread -ldl -lm
 
 install: install.sub-folders
 	cp $(BINS) $(PREFIX)/sbin

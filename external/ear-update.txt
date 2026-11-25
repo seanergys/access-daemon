@@ -1,4 +1,0 @@
-git submodule update --remote external/ear
-git add external/ear
-git commit -m "Update external/ear submodule"
-git push

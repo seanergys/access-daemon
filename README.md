@@ -22,7 +22,8 @@ The Access Daemon is a plugin-based program that runs as a Linux daemon. Each pl
 ## How to test requests via keyboard plugin
 
 1) Start the Access Daemon with `sudo ./run.sh` to receive simulated requests through the keyboard plugin (see [`run.sh`](run.sh)).
-2) Then type a string that simulates a request received from the Data Plane:
+2) You can add the `--verbose=2` and `--verbose=4` to see information about the loading process.
+3) Then type a string that simulates a request received from the Data Plane:
 
 ```c
 Enter request: met freq cpu all get
