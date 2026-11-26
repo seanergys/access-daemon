@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 SEANERGYS Partners <https://seanergys.eu>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 ifdef SEABUS_PREFIX
 BINS += metrics_seanerbus \
         metrics_easybus

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 SEANERGYS Partners <https://seanergys.eu>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 SRC_DIRS  = $(EAR_SRCDIR)/metrics/common
 SRC_DIRS += $(EAR_SRCDIR)/common
 SRC_DIRS += $(EAR_SRCDIR)/common/utils

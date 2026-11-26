@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# SPDX-FileCopyrightText: 2026 SEANERGYS Partners <https://seanergys.eu>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 export LD_LIBRARY_PATH=./src/common:/home/jordi/Documents/opt/seanerbus/lib
 
 PLUGINS="seanerbus.so"

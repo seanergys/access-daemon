@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 SEANERGYS Partners <https://seanergys.eu>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 CC           ?= gcc
 CFLAGS       ?= -g -Wall
 PREFIX       ?= /tmp/access-daemon

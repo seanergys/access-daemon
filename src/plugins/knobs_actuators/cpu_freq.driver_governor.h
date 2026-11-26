@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2026 SEANERGYS Partners <https://seanergys.eu>
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #ifndef ACTUATOR_CPUFREQ_DRIVER_GOVERNOR_H
 #define ACTUATOR_CPUFREQ_DRIVER_GOVERNOR_H
 
