@@ -11,3 +11,5 @@ metrics_seanerbus
 metrics_easybus
 src/libraries/access_easybus.pc
 msr_sim
+
+__pycache__
