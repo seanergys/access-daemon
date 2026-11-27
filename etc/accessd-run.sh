@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# SPDX-FileCopyrightText: 2026 SEANERGYS Partners <https://seanergys.eu>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 SCRIPT_PATH=$(realpath -e -- "${BASH_SOURCE[0]}") || exit 1
 SBIN_DIR=${SCRIPT_PATH%/*}
 LIB_DIR=${SBIN_DIR%/*}/lib/accessd

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 SEANERGYS Partners <https://seanergys.eu>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 *.o
 *.a
 *.so
@@ -11,3 +15,5 @@ metrics_seanerbus
 metrics_easybus
 src/libraries/access_easybus.pc
 msr_sim
+
+__pycache__

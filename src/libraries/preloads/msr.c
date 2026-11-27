@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2026 SEANERGYS Partners <https://seanergys.eu>
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include <time.h>
 #include <stdint.h>
 #include <string.h>

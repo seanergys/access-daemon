@@ -1,4 +1,9 @@
+# SPDX-FileCopyrightText: 2026 SEANERGYS Partners <https://seanergys.eu>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 stages:
+  - lint
   - build
   - test
 
@@ -8,6 +13,18 @@ variables:
 
 default:
   image: debian:bookworm
+
+lint:reuse:
+  stage: lint
+  image:
+    name: fsfe/reuse:latest
+    entrypoint: [""]
+  before_script:
+    # add files created by the CI, but to be ignored by reuse
+    - mkdir -p .git/info
+    - echo ".cache" >> .git/info/exclude
+  script:
+    - reuse lint
 
 .build_base:
   stage: build

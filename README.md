@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 SEANERGYS Partners <https://seanergys.eu>
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Access Daemon
 
 The Access Daemon is a plugin-based program that runs as a Linux daemon. Each plugin represents a different metric, such as CPU frequency, temperature, FLOPS, and so on. The AD receives requests and sends responses through the [Data Plane](https://gitlab.seanergys.fz-juelich.de/software/seanerbus).

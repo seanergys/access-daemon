@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2026 SEANERGYS Partners <https://seanergys.eu>
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #ifndef ACCESS_DAEMON_DEBUG_H
 #define ACCESS_DAEMON_DEBUG_H
 

@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# SPDX-FileCopyrightText: 2026 SEANERGYS Partners <https://seanergys.eu>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 set -euo pipefail # Fail on error, fail on undefined var,
 
 export LD_LIBRARY_PATH="./src/common${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" # Expand

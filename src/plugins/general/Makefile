@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 SEANERGYS Partners <https://seanergys.eu>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # EAR's config_install.h stub is empty. Match ear_private's local API ABI.
 EARD_CFLAGS ?= -DMAX_CPUS_SUPPORTED=512 -DMAX_SOCKETS_SUPPORTED=4 -DMAX_GPUS_SUPPORTED=8 -DUSE_GPUS=1
 

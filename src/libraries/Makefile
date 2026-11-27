@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 SEANERGYS Partners <https://seanergys.eu>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 ifdef SEABUS_PREFIX
 BINS = access_easybus.so \
        access_easybus.pc
